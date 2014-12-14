@@ -1,0 +1,16 @@
+{
+  "framework": "mocha",
+  "src_files": [
+    "synceddb.js",
+    "test/*.test.js"
+  ],
+  "serve_files": [
+    "./bower_components/sinonjs/sinon.js",
+    "./bower_components/node-assert/assert.js",
+
+    "./bower_components/minivents-cuzzo/minivents.js",
+    "synceddb.js",
+    "test/*.test.js"
+  ],
+  "launch_in_dev": [ "firefox", "chromium" ]
+}
