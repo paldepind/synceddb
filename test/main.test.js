@@ -8,7 +8,7 @@ describe('SyncedDB', function() {
       ['byLength', 'length'],
     ],
     ['houses',
-      ['keyPath', 'street'],
+      ['byStreet', 'street'],
     ]
   ];
   afterEach(function(done) {
@@ -118,7 +118,7 @@ describe('SyncedDB', function() {
           ['byCost', 'cost'], // New
         ],
         ['houses',
-          ['keyPath', 'street'],
+          ['byStreet', 'street'],
         ]
       ];
       syncedDB.open('mydb', 1, stores)
@@ -214,20 +214,19 @@ describe('SyncedDB', function() {
       });
     });
     it('can get several records at once', function(done) {
+      var roads;
       db.read('roads', function(stores) {
         stores.roads.put({length: 100, price: 1337},
                          {length: 200, price: 2030})
         .then(function(keys) {
-          console.log(keys);
-          db.roads.get(keys[0], keys[1])
-          .then(function(roads) {
-            console.log('roads');
-            console.log(roads);
-            assert(roads[0].length === 100);
-            assert(roads[1].length === 200);
+          stores.roads.get(keys[0], keys[1])
+          .then(function(foundRoads) {
+            roads = foundRoads;
           });
         });
       }).then(function() {
+        assert(roads[0].length === 100);
+        assert(roads[1].length === 200);
         done();
       });
     });
@@ -257,11 +256,11 @@ describe('SyncedDB', function() {
       });
     });
     it('is possible to get and then put', function(done) {
-      db.roads.put({length: 100, price: 1337, key: 1})
-      .then(function() {
+      db.roads.put({length: 100, price: 1337})
+      .then(function(putKey) {
         db.transaction('roads', 'rw', function(stores) {
           var road = {};
-          stores.roads.get(1)
+          stores.roads.get(putKey)
           .then(function(r) {
             r.length = 110;
             r.key = 1;
@@ -272,6 +271,43 @@ describe('SyncedDB', function() {
         }).then(function(road) {
           console.log(road);
           assert(road.length === 110);
+          done();
+        });
+      });
+    });
+    describe('Indexes', function() {
+      it('can get records by indexes', function(done) {
+        var road;
+        db.roads.put({length: 100, price: 1337})
+        .then(function() {
+          return db.transaction('roads', 'r', function(stores) {
+            stores.roads.byLength.get(100)
+            .then(function(roads) {
+              console.log('got road by lenght');
+              console.log(roads);
+              road = roads[0];
+            });
+          }).then(function() {
+            assert.equal(road.price, 1337);
+            done();
+          });
+        });
+      });
+      it('can get records by index in a specified range', function(done) {
+        var foundHouses;
+        db.houses.put({street: 'Somewhere 1'},
+                   {street: 'Somewhere 2'},
+                   {street: 'Somewhere 3'},
+                   {street: 'Somewhere 4'}
+        ).then(function() {
+          return db.transaction(['houses'], 'r', function(stores) {
+            return stores.houses.byStreet.inRange({gt: 'Somewhere 2', lte: 'Somewhere 4'})
+              .then(function(houses) { foundHouses = houses; });
+          });
+        }).then(function() {
+          console.log('foundHouses');
+          console.log(foundHouses);
+          assert(foundHouses.length === 2);
           done();
         });
       });
@@ -375,31 +411,32 @@ describe('SyncedDB', function() {
       beforeEach(function() {
         db = syncedDB.open('mydb', 1, stores);
         animals = db.animals;
-        put = animals.put({name: 'Thumper', race: 'rabbit', color: 'brown', key: 'rabbit1'},
-                          {name: 'Fluffy', race: 'rabbit', color: 'white', key: 'rabbit2'},
-                          {name: 'Bella', race: 'dog', color: 'white', key: 'dog1'});
+        put = animals.put({name: 'Thumper', race: 'rabbit', color: 'brown'},
+                          {name: 'Fluffy', race: 'rabbit', color: 'white'},
+                          {name: 'Bella', race: 'dog', color: 'white'});
       });
       it('supports getting by unique index', function(done) {
         var db = syncedDB.open('mydb', 1, stores);
         put.then(function() {
           return animals.byName.get('Thumper');
-        }).then(function(thumper) {
-          console.log(thumper);
-          assert.equal(thumper.key, 'rabbit1');
-          assert.equal(thumper.color, 'brown');
+        }).then(function(thumpers) {
+          console.log('thumper');
+          console.log(thumpers);
+          assert.equal(thumpers[0].race, 'rabbit');
+          assert.equal(thumpers[0].color, 'brown');
           done();
         });
       });
       it('can get multiple records', function(done) {
         put.then(function() {
           return animals.byColor.get('white');
-        }).then(function(whiteAnimals) {
-          assert(whiteAnimals[0].name === 'Bella');
-          assert(whiteAnimals[1].name === 'Fluffy');
+        }).then(function(animals) {
+          assert(animals[0].name == 'Bella' ? animals[1].name == 'Fluffy'
+                                            : animals[1].name == 'Bella');
           done();
         });
       });
-      it('return an array if store isnt unique', function(done) {
+      it('returns an array if store isnt unique', function(done) {
         put.then(function() {
           return animals.byColor.get('brown');
         }).then(function(brownAnimals) {
@@ -497,10 +534,11 @@ describe('SyncedDB', function() {
       it('sends added record', function(done) {
         var road = {length: 100, price: 1337};
         onSend = function(msg) {
+          var sent = JSON.parse(msg);
           ws.onmessage({data: JSON.stringify({
             type: 'ok',
             storeName: 'roads',
-            key: 'foodle',
+            key: sent.record.key,
             newVersion: 0,
           })});
         };
@@ -518,7 +556,6 @@ describe('SyncedDB', function() {
         var road = {length: 100, price: 1337};
         onSend = function(msg) {
           var sent = JSON.parse(msg);
-          console.log(sent.record.key);
           ws.onmessage({data: JSON.stringify({
             type: 'ok',
             storeName: 'roads',
