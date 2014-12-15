@@ -33,6 +33,14 @@ function isObject(o) {
   return o !== null && typeof o === 'object';
 }
 
+function Countdown(initial) {
+  this.val = initial || 0;
+}
+Countdown.prototype.add = function(n) {
+  this.val += n;
+  if (this.val === 0) this.onZero();
+};
+
 function ImmediateThenable(fn) {
   this.thenCbs = [];
   this.catchCbs = [];
@@ -390,6 +398,8 @@ var createMsg = function(storeName, clientId, record) {
 
 var syncToRemote = function(ws, db) {
   return new Promise(function(resolve, reject) {
+    var counter = new Countdown();
+    counter.onZero = resolve;
     getClientId(db, ws).then(function(clientId) {
       var messageUnresolved = 0;
       ws.onmessage = function(msg) {
@@ -397,14 +407,12 @@ var syncToRemote = function(ws, db) {
         if (msgObj.type === 'ok') {
           handleRemoteOk(db, msgObj)
           .then(function() {
-            messageUnresolved--;
-            if (messageUnresolved === 0) resolve();
+            counter.add(-1);
           });
         }
       };
       forEachRecordChangedSinceSync(db, function(storeName, record) {
-        console.log('Sending record');
-        messageUnresolved++;
+        counter.add(1);
         ws.send(createMsg(storeName, clientId, record));
       });
     });
@@ -453,21 +461,15 @@ function handleRecordChange(db, msg) {
   }
 }
 
-function handleChanges(db, ws, nrOfRecordsToSync) {
-  if (nrOfRecordsToSync === 0) {
-    console.log('nr of record is ZEROO!');
-    return Promise.resolve();
+function handleChanges(db, ws, recordsLeft) {
+  if (recordsLeft.val === 0) {
+    recordsLeft.add(0);
   } else {
-    return new Promise(function(resolve, reject) {
-      ws.onmessage = function(msg) {
-        var data = JSON.parse(msg.data);
-        handleRecordChange(db, data)
-        .then(function() {
-          nrOfRecordsToSync--;
-          if (nrOfRecordsToSync === 0) resolve();
-        });
-      };
-    });
+    ws.onmessage = function(msg) {
+      var data = JSON.parse(msg.data);
+      handleRecordChange(db, data)
+      .then(recordsLeft.add.bind(recordsLeft, -1));
+    };
   }
 }
 
@@ -532,8 +534,9 @@ SDBDatabase.prototype.pullFromRemote = function() {
         console.log('on msg');
         var data = JSON.parse(msg.data);
         if (data.type === 'sending-changes') {
-          handleChanges(db, ws, data.nrOfRecordsToSync)
-          .then(resolve);
+          var recordsLeft = new Countdown(data.nrOfRecordsToSync);
+          recordsLeft.onZero = resolve;
+          handleChanges(db, ws, recordsLeft);
         }
       };
     });
