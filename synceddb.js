@@ -257,9 +257,13 @@ var handleMigrations = function(version, storeDeclaration, migrationHooks, e) {
   var req = e.target;
   var db = req.result;
   var existingStores = db.objectStoreNames;
-  var metaStore = existingStores.contains('sdbMetaData') ?
-                    req.transaction.objectStore('sdbMetaData') :
-                    db.createObjectStore('sdbMetaData', {keyPath: 'key'});
+  var metaStore;
+  if (existingStores.contains('sdbMetaData')) {
+    metaStore = req.transaction.objectStore('sdbMetaData');
+  } else {
+    metaStore = db.createObjectStore('sdbMetaData', {keyPath: 'key'});
+    metaStore.put({key: 'meta', clientId: undefined});
+  }
   storeDeclaration.forEach(function(s) {
     var store;
     if (existingStores.contains(s[0])) {
@@ -350,14 +354,6 @@ SDBDatabase.prototype.read = function() {
   return this.transaction(args.slice(0, -1), 'read', args.slice(-1)[0]);
 };
 
-var createMsg = function(storeName, record) {
-  return JSON.stringify({
-    type: 'create',
-    storeName: storeName,
-    record: record,
-  });
-};
-
 var forEachRecordChangedSinceSync = function(db, fn) {
   var storeNames = Object.keys(db.stores);
   db.transaction(storeNames, 'r', function(stores) {
@@ -383,23 +379,34 @@ function handleRemoteOk(db, msg) {
   });
 }
 
+var createMsg = function(storeName, clientId, record) {
+  return JSON.stringify({
+    type: 'create',
+    storeName: storeName,
+    clientId: clientId,
+    record: record,
+  });
+};
+
 var syncToRemote = function(ws, db) {
   return new Promise(function(resolve, reject) {
-    var messageUnresolved = 0;
-    ws.onmessage = function(msg) {
-      var msgObj = JSON.parse(msg.data);
-      if (msgObj.type === 'ok') {
-        handleRemoteOk(db, msgObj)
-        .then(function() {
-          messageUnresolved--;
-          if (messageUnresolved === 0) resolve();
-        });
-      }
-    };
-    forEachRecordChangedSinceSync(db, function(storeName, record) {
-      console.log('Sending record');
-      messageUnresolved++;
-      ws.send(createMsg(storeName, record));
+    getClientId(db, ws).then(function(clientId) {
+      var messageUnresolved = 0;
+      ws.onmessage = function(msg) {
+        var msgObj = JSON.parse(msg.data);
+        if (msgObj.type === 'ok') {
+          handleRemoteOk(db, msgObj)
+          .then(function() {
+            messageUnresolved--;
+            if (messageUnresolved === 0) resolve();
+          });
+        }
+      };
+      forEachRecordChangedSinceSync(db, function(storeName, record) {
+        console.log('Sending record');
+        messageUnresolved++;
+        ws.send(createMsg(storeName, clientId, record));
+      });
     });
   });
 };
@@ -464,29 +471,55 @@ function handleChanges(db, ws, nrOfRecordsToSync) {
   }
 }
 
+function getClientId(db, ws) {
+  if (db.clientId) {
+    return Promise.resolve(db.clientId);
+  } else {
+    return db.sdbMetaData.get('meta')
+    .then(function(meta) {
+      if (meta.clientId) {
+        db.clientId = meta.clientId;
+        return meta.clientId;
+      } else {
+        meta.clientId = Math.random().toString(36); // FIXME
+        return db.transaction(['sdbMetaData'], 'rw', function(stores) {
+          putValToStore(stores.sdbMetaData, meta, true);
+        }).then(function() {
+          db.clientId = meta.clientId;
+          return meta.clientId;
+        });
+      }
+    });
+  }
+}
+
+function requestChangesToStore(db, ws, storeName, clientId) {
+  console.log('getting ' + storeName + 'Meta');
+  db.sdbMetaData.get(storeName + 'Meta')
+  .then(function(storeMeta) {
+    console.log('since');
+    console.log(storeMeta.syncedTo);
+    ws.send(JSON.stringify({
+      type: 'get-changes',
+      storeNames: storeName,
+      clientId: clientId,
+      since: storeMeta.syncedTo,
+    }));
+  });
+}
+
 SDBDatabase.prototype.pullFromRemote = function() {
   var db = this;
   var storeNames = toArray(arguments);
   var storeName = storeNames[0];
   return db.then(function() {
+    return getClientId(db);
+  }).then(function(clientId) {
     var nrOfRecordsToSync = 0;
     db.syncing = true;
     return new Promise(function(resolve, reject) {
       var ws = new WebSocket('ws://' + db.remote);
-      ws.onopen = function () {
-        console.log('getting ' + storeName + 'Meta');
-        db.sdbMetaData.get(storeName + 'Meta')
-        .then(function(storeMeta) {
-          console.log('since');
-          console.log(storeMeta.syncedTo);
-          ws.send(JSON.stringify({
-            type: 'get-changes',
-            storeNames: storeNames,
-            clientId: 'foobar',
-            since: storeMeta.syncedTo,
-          }));
-        });
-      };
+      ws.onopen = requestChangesToStore.bind(null, db, ws, storeName, clientId);
       ws.onerror = function (error) {
         console.log('Connection errror');
         console.log(error);
