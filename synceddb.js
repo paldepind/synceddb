@@ -166,7 +166,7 @@ SDBObjectStoreInTransaction.prototype.get = function(keys) {
   });
 };
 
-function insertValInStore(method, store, val) {
+function insertValInStore(method, store, val, silent) {
   var IDBStore = store.IDBStore;
   return new ImmediateThenable(function(resolve, reject) {
     var isNew = !('key' in val);
@@ -174,7 +174,7 @@ function insertValInStore(method, store, val) {
     var req = IDBStore[method](val);
     req.onsuccess = function() {
       var type = (method === 'add' || isNew) ? 'add' : 'update';
-      store.changedRecords.push({type: type, record: val});
+      if (!silent) store.changedRecords.push({type: type, record: val});
       resolve(req.result);
     };
   });
@@ -257,14 +257,20 @@ var handleMigrations = function(version, storeDeclaration, migrationHooks, e) {
   var req = e.target;
   var db = req.result;
   var existingStores = db.objectStoreNames;
+  var metaStore = existingStores.contains('sdbMetaData') ?
+                    req.transaction.objectStore('sdbMetaData') :
+                    db.createObjectStore('sdbMetaData', {keyPath: 'key'});
   storeDeclaration.forEach(function(s) {
-    var storeDeclaration =
-      existingStores.contains(s[0]) ?
-        req.transaction.objectStore(s[0]) :
-        db.createObjectStore(s[0], {keyPath: 'key'});
+    var store;
+    if (existingStores.contains(s[0])) {
+      store = req.transaction.objectStore(s[0]);
+    } else {
+      store = db.createObjectStore(s[0], {keyPath: 'key'});
+      metaStore.put({ key: s[0] + 'Meta', syncedTo: -1});
+    }
     s.slice(1).forEach(function(index) {
-      if (!storeDeclaration.indexNames.contains(index[0]))
-        storeDeclaration.createIndex.apply(storeDeclaration, index);
+      if (!store.indexNames.contains(index[0]))
+        store.createIndex.apply(store, index);
     });
   });
   if (migrationHooks)
@@ -278,8 +284,7 @@ var SDBDatabase = function(name, version, stores, migrations) {
   db.version = version;
   db.stores = {};
   stores = stores.map(function(store) {
-    return store.concat([['changedSinceSync', 'changedSinceSync'],
-                         ['key', 'key', {unique: true}]]);
+    return store.concat([['changedSinceSync', 'changedSinceSync']]);
   });
   // Create stores on db object
   stores.forEach(function(store) {
@@ -290,6 +295,7 @@ var SDBDatabase = function(name, version, stores, migrations) {
     // Store shortcut should not override db properties
     db[store[0]] = db[store[0]] || storeObj;
   });
+  db.sdbMetaData = new SDBObjectStore(db, 'sdbMetaData', []);
   this.promise = new Promise(function(resolve, reject) {
     var req = indexedDB.open(name, version);
     req.onupgradeneeded = handleMigrations.bind(null, version, stores, migrations);
@@ -427,6 +433,15 @@ function handleRecordChange(db, msg) {
     msg.record.changedSinceSync = 0;
     return db.transaction(msg.storeName, 'rw', function(stores) {
       addValToStore(stores[msg.storeName], msg.record);
+    }).then(function() {
+      return db.transaction(['sdbMetaData'], 'rw', function(stores) {
+        stores.sdbMetaData.get(msg.storeName + 'Meta')
+        .then(function(storeMeta) {
+          console.log('setting synced to ' + msg.timestamp);
+          storeMeta.syncedTo = msg.timestamp;
+          putValToStore(stores.sdbMetaData, storeMeta, true);
+        });
+      });
     });
   }
 }
@@ -452,18 +467,25 @@ function handleChanges(db, ws, nrOfRecordsToSync) {
 SDBDatabase.prototype.pullFromRemote = function() {
   var db = this;
   var storeNames = toArray(arguments);
+  var storeName = storeNames[0];
   return db.then(function() {
     var nrOfRecordsToSync = 0;
     db.syncing = true;
     return new Promise(function(resolve, reject) {
       var ws = new WebSocket('ws://' + db.remote);
       ws.onopen = function () {
-        ws.send(JSON.stringify({
-          type: 'get-changes',
-          storeNames: storeNames,
-          clientId: 'foobar',
-          since: -1,
-        }));
+        console.log('getting ' + storeName + 'Meta');
+        db.sdbMetaData.get(storeName + 'Meta')
+        .then(function(storeMeta) {
+          console.log('since');
+          console.log(storeMeta.syncedTo);
+          ws.send(JSON.stringify({
+            type: 'get-changes',
+            storeNames: storeNames,
+            clientId: 'foobar',
+            since: storeMeta.syncedTo,
+          }));
+        });
       };
       ws.onerror = function (error) {
         console.log('Connection errror');

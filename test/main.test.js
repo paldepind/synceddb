@@ -43,7 +43,7 @@ describe('SyncedDB', function() {
         req.onsuccess = function() {
           var db = req.result;
           var stores = db.objectStoreNames;
-          assert(stores.length === 3);
+          assert(stores.length === 4);
           assert(stores.contains('animals'));
           assert(stores.contains('roads'));
           assert(stores.contains('houses'));
@@ -578,6 +578,35 @@ describe('SyncedDB', function() {
           return db.roads.byLength.get(133);
         }).then(function(road) {
           assert.equal(road[0].price, 1000);
+          done();
+        });
+      });
+      it('requests changes since last sync', function(done) {
+        onSend = function(msg) {
+          var data = JSON.parse(msg);
+          if (data.since === -1) {
+            ws.onmessage({data: JSON.stringify({
+              type: 'sending-changes',
+              nrOfRecordsToSync: 1
+            })});
+            ws.onmessage({data: JSON.stringify({
+              type: 'create',
+              storeName: 'roads',
+              timestamp: 0,
+              record: {version: 0, length: 133, price: 1000, key: 'foo'}
+            })});
+          } else {
+            ws.onmessage({data: JSON.stringify({
+              type: 'sending-changes',
+              nrOfRecordsToSync: 0
+            })});
+          }
+        };
+        db.pullFromRemote('roads')
+        .then(function() {
+          return db.pullFromRemote('roads');
+        }).then(function(road) {
+          assert(sendSpy.calledTwice);
           done();
         });
       });
