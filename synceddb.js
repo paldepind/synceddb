@@ -75,7 +75,7 @@ var SDBIndex = function(name, db, store) {
 
 SDBIndex.prototype.get = function(/* keys */) {
   var records, index = this;
-  var keys = [].slice.call(arguments);
+  var keys = toArray(arguments);
   return index.db.transaction(index.store.name, 'r', function(stores) {
     var txIndex = stores[index.store.name][index.name];
     txIndex.get.apply(txIndex, keys).then(function(recs) {
@@ -98,7 +98,7 @@ var SDBObjectStore = function(db, name, indexes) {
 
 SDBObjectStore.prototype.get = function() {
   var records, store = this;
-  var keys = [].slice.call(arguments);
+  var keys = toArray(arguments);
   return store.db.transaction(store.name, 'r', function(stores) {
     var txStore = stores[store.name];
     txStore.get.apply(txStore, keys).then(function(recs) {
@@ -111,7 +111,7 @@ SDBObjectStore.prototype.get = function() {
 
 SDBObjectStore.prototype.put = function() {
   var store = this;
-  var objs = [].slice.call(arguments);
+  var objs = toArray(arguments);
   var insertKeys;
   return store.db.transaction(store.name, 'rw', function(stores) {
     stores[store.name].put.apply(stores[store.name], objs).then(function(keys) {
@@ -144,7 +144,7 @@ function getInRange(index, range) {
 }
 
 SDBIndexInTransaction.prototype.get = function() {
-  var keys = [].slice.call(arguments);
+  var keys = toArray(arguments);
   var records = [];
   var index = this.store.IDBStore.index(this.name);
   var countdown = new Countdown(keys.length);
@@ -168,11 +168,9 @@ SDBIndexInTransaction.prototype.inRange = function(rangeObj) {
   return getInRange(index, range);
 };
 
-var SDBObjectStoreInTransaction = function(db, tx, name, indexes) {
+var SDBObjectStoreInTransaction = function(db, name, IDBStore, indexes) {
   this.name = name;
-  this.db = db;
-  this.tx = tx;
-  this.IDBStore = tx.objectStore(name);
+  this.IDBStore = IDBStore;
   this.changedRecords = [];
   this.indexes = {};
   indexes.forEach(function(i) {
@@ -182,9 +180,7 @@ var SDBObjectStoreInTransaction = function(db, tx, name, indexes) {
 };
 
 SDBObjectStoreInTransaction.prototype.get = function(keys) {
-  var store = this;
-  var db = store.db;
-  keys = [].slice.call(arguments);
+  keys = toArray(arguments);
   var records = [];
   var IDBStore = this.IDBStore;
   return new ImmediateThenable(function(resolve, reject) {
@@ -234,15 +230,14 @@ var putValsToStore = insertValsInStore.bind(null, 'put');
 var addValsToStore = insertValsInStore.bind(null, 'add');
 
 SDBObjectStoreInTransaction.prototype.put = function() {
-  var store = this;
-  var vals = [].slice.call(arguments);
+  var vals = toArray(arguments);
   vals.forEach(function(val) {
     val.changedSinceSync = 1;
     if (val.serverId && !val.remoteOriginal) {
       // FIXME
     }
   });
-  return putValsToStore(store, vals);
+  return putValsToStore(this, vals);
 };
 
 var createKeyRange = function(r) {
@@ -255,30 +250,6 @@ var createKeyRange = function(r) {
   return !(gt || gte) ? IDBKeyRange.upperBound(high, lt)
        : !(lt || lte) ? IDBKeyRange.lowerBound(low, gt)
                       : IDBKeyRange.bound(low, high, gt, lt);
-};
-
-SDBObjectStore.prototype.inRange = function(rangeObj) {
-  var keyRange = createKeyRange(rangeObj);
-  var storeName = this.name;
-  var db = this.db;
-  return new Promise(function(resolve, reject) {
-    db.then(function(res) {
-      var records = [];
-      var tx = res.db.db.transaction(storeName, 'readonly');
-      var store = tx.objectStore(storeName);
-      var req = store.openCursor(keyRange);
-      req.onsuccess = function() {
-        var cursor = req.result;
-        if (cursor) {
-          records.push(cursor.value);
-          cursor.continue();
-        }
-      };
-      tx.oncomplete = function() {
-        resolve(records);
-      };
-    });
-  });
 };
 
 function callMigrationHooks(data, migrations, newV, curV) {
@@ -353,6 +324,16 @@ SDBDatabase.prototype.catch = function(fn) {
   return this.promise.catch(fn);
 };
 
+function emitEvents(stores, dbStores) {
+  for (var name in stores) {
+    stores[name].changedRecords.forEach(function(change) {
+      dbStores[name].emit(change.type, {
+        record: change.record
+      });
+    });
+  }
+}
+
 SDBDatabase.prototype.transaction = function(storeNames, mode, fn) {
   storeNames = [].concat(storeNames);
   mode = mode === 'r'    ? 'readonly'
@@ -363,19 +344,12 @@ SDBDatabase.prototype.transaction = function(storeNames, mode, fn) {
   return db.then(function(res) {
     return new Promise(function(resolve, reject) {
       var tx = db.db.transaction(storeNames, mode);
-      var stores = storeNames.reduce(function(ss, s) {
-        ss[s] = new SDBObjectStoreInTransaction(db, tx, s, db[s].indexes);
-        return ss;
-      }, {tx: tx});
+      var stores = {};
+      storeNames.forEach(function(s) {
+        stores[s] = new SDBObjectStoreInTransaction(db, s, tx.objectStore(s), db[s].indexes);
+      });
       tx.oncomplete = function() {
-        storeNames.forEach(function(storeName) {
-          var store = stores[storeName];
-          store.changedRecords.forEach(function(change) {
-            db.stores[storeName].emit(change.type, {
-              record: change.record
-            });
-          });
-        });
+        emitEvents(stores, db.stores);
         resolve();
       };
       fn(stores);
@@ -384,7 +358,7 @@ SDBDatabase.prototype.transaction = function(storeNames, mode, fn) {
 };
 
 SDBDatabase.prototype.read = function() {
-  var args = [].slice.call(arguments);
+  var args = toArray(arguments);
   return this.transaction(args.slice(0, -1), 'read', args.slice(-1)[0]);
 };
 
@@ -401,20 +375,6 @@ var forEachRecordChangedSinceSync = function(db, fn) {
   });
 };
 
-function handleRemoteOk(db, msg) {
-  return db.transaction(msg.storeName, 'rw', function(stores) {
-    var store = stores[msg.storeName];
-    console.log('hest');
-    console.log(msg);
-    console.log(store);
-    store.get(msg.key).then(function(record) {
-      record.changedSinceSync = 0;
-      record.version = msg.newVersion;
-      putValToStore(store, record);
-    });
-  });
-}
-
 var createMsg = function(storeName, clientId, record) {
   return JSON.stringify({
     type: 'create',
@@ -424,6 +384,25 @@ var createMsg = function(storeName, clientId, record) {
   });
 };
 
+function handleRemoteOk(db, msg) {
+  return db.transaction(msg.storeName, 'rw', function(stores) {
+    var store = stores[msg.storeName];
+    store.get(msg.key).then(function(record) {
+      record.changedSinceSync = 0;
+      record.version = msg.newVersion;
+      putValToStore(store, record);
+    });
+  });
+}
+
+function handleRemotePushResponse(db, res, countdown) {
+  if (res.type === 'ok') {
+    handleRemoteOk(db, res).then(function() {
+      countdown.add(-1);
+    });
+  }
+}
+
 var syncToRemote = function(ws, db) {
   return new Promise(function(resolve, reject) {
     var counter = new Countdown();
@@ -432,12 +411,7 @@ var syncToRemote = function(ws, db) {
       var messageUnresolved = 0;
       ws.onmessage = function(msg) {
         var msgObj = JSON.parse(msg.data);
-        if (msgObj.type === 'ok') {
-          handleRemoteOk(db, msgObj)
-          .then(function() {
-            counter.add(-1);
-          });
-        }
+        handleRemotePushResponse(db, msgObj, counter);
       };
       forEachRecordChangedSinceSync(db, function(storeName, record) {
         counter.add(1);
@@ -449,41 +423,40 @@ var syncToRemote = function(ws, db) {
 
 SDBDatabase.prototype.pushToRemote = function(startFn) {
   var db = this;
-  this.syncing = true;
+  db.syncing = true;
   var ws = new WebSocket('ws://' + db.remote);
   return new Promise(function(resolve, reject) {
     ws.onopen = function () {
       console.log('Connection established');
-      syncToRemote(ws, db)
-      .then(function() {
+      syncToRemote(ws, db).then(function() {
         console.log('done syncing');
         resolve();
       });
     };
     ws.onerror = function (error) {
-      console.log('Connection errror');
-      console.log(error);
+      console.log('Connection errror', error);
     };
     ws.onclose = function (e) {
-      console.log('Connection closed');
-      console.log(e);
+      console.log('Connection closed', e);
     };
   });
 };
 
+function updateStoreSyncedTo(stores, storeName, time) {
+  stores.sdbMetaData.get(storeName + 'Meta')
+  .then(function(storeMeta) {
+    storeMeta.syncedTo = time;
+    putValToStore(stores.sdbMetaData, storeMeta, true);
+  });
+}
+
 function handleRecordChange(db, msg) {
   if (msg.type === 'create') {
     msg.record.changedSinceSync = 0;
-    return db.transaction(msg.storeName, 'rw', function(stores) {
-      addValToStore(stores[msg.storeName], msg.record);
-    }).then(function() {
-      return db.transaction(['sdbMetaData'], 'rw', function(stores) {
-        stores.sdbMetaData.get(msg.storeName + 'Meta')
-        .then(function(storeMeta) {
-          console.log('setting synced to ' + msg.timestamp);
-          storeMeta.syncedTo = msg.timestamp;
-          putValToStore(stores.sdbMetaData, storeMeta, true);
-        });
+    return db.transaction([msg.storeName, 'sdbMetaData'], 'rw', function(stores) {
+      addValToStore(stores[msg.storeName], msg.record)
+      .then(function() {
+        updateStoreSyncedTo(stores, msg.storeName, msg.timestamp);
       });
     });
   }
@@ -542,7 +515,6 @@ SDBDatabase.prototype.pullFromRemote = function() {
   return db.then(function() {
     return getClientId(db);
   }).then(function(clientId) {
-    var nrOfRecordsToSync = 0;
     db.syncing = true;
     return new Promise(function(resolve, reject) {
       var ws = new WebSocket('ws://' + db.remote);
