@@ -23,6 +23,10 @@ function toArray(arr) {
   return [].slice.call(arr);
 }
 
+function eachKeyVal(obj, fn) {
+  Object.keys(obj).forEach(function(key) { fn(key, obj[key]); });
+}
+
 var handleVersionChange = function(e) {
   // The database is being deleted or opened with
   // a newer version, possibly in another tab
@@ -306,15 +310,15 @@ var handleMigrations = function(version, storeDeclaration, migrationHooks, e) {
     metaStore = db.createObjectStore('sdbMetaData', {keyPath: 'key'});
     metaStore.put({key: 'meta', clientId: undefined});
   }
-  storeDeclaration.forEach(function(s) {
+  eachKeyVal(storeDeclaration, function(storeName, indexes) {
     var store;
-    if (existingStores.contains(s[0])) {
-      store = req.transaction.objectStore(s[0]);
+    if (existingStores.contains(storeName)) {
+      store = req.transaction.objectStore(storeName);
     } else {
-      store = db.createObjectStore(s[0], {keyPath: 'key'});
-      metaStore.put({ key: s[0] + 'Meta', syncedTo: -1});
+      store = db.createObjectStore(storeName, {keyPath: 'key'});
+      metaStore.put({ key: storeName + 'Meta', syncedTo: -1});
     }
-    s.slice(1).forEach(function(index) {
+    indexes.forEach(function(index) {
       if (!store.indexNames.contains(index[0]))
         store.createIndex.apply(store, index);
     });
@@ -323,23 +327,24 @@ var handleMigrations = function(version, storeDeclaration, migrationHooks, e) {
     callMigrationHooks({db: db, e: e}, migrationHooks, version, e.oldVersion);
 };
 
-var SDBDatabase = function(name, version, stores, migrations) {
+var SDBDatabase = function(name, version, storeDecs, migrations) {
   var db = this;
   db.name = name;
   db.remote = '';
   db.version = version;
   db.stores = {};
-  stores = stores.map(function(store) {
-    return store.concat([['changedSinceSync', 'changedSinceSync']]);
+  var stores = {};
+  eachKeyVal(storeDecs, function(storeName, indexes) {
+    stores[storeName] = indexes.concat([['changedSinceSync', 'changedSinceSync']]);
   });
   // Create stores on db object
-  stores.forEach(function(store) {
-    var indexNames = store.slice(1).map(function(idx) { return idx[0]; });
-    var storeObj = new SDBObjectStore(db, store[0], indexNames);
-    db.stores[store[0]] = storeObj;
+  eachKeyVal(stores, function(storeName, indexes) {
+    var indexNames = indexes.map(function(idx) { return idx[0]; });
+    var storeObj = new SDBObjectStore(db, storeName, indexNames);
+    db.stores[storeName] = storeObj;
     // Make stores available directly as properties on the db
     // Store shortcut should not override db properties
-    db[store[0]] = db[store[0]] || storeObj;
+    db[storeName] = db[storeName] || storeObj;
   });
   db.sdbMetaData = new SDBObjectStore(db, 'sdbMetaData', []);
   this.promise = new Promise(function(resolve, reject) {

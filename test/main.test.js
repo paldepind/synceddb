@@ -1,16 +1,16 @@
 describe('SyncedDB', function() {
-  var stores = [
-    ['animals',
+  var stores = {
+    animals: [
       ['byColor', 'color'],
       ['byName', 'name', {unique: true}],
     ],
-    ['roads',
+    roads: [
       ['byLength', 'length'],
     ],
-    ['houses',
+    houses: [
       ['byStreet', 'street'],
-    ]
-  ];
+    ],
+  };
   afterEach(function(done) {
     var req = indexedDB.deleteDatabase('mydb');
     req.onblocked = function () { console.log('Delete was blocked'); };
@@ -100,27 +100,28 @@ describe('SyncedDB', function() {
     it('handles migrations with added stores', function(done) {
       syncedDB.open('mydb', 1, stores)
       .then(function() {
-        var stores2 = stores.concat([['books', ['byAuthor', 'author']]]);
+        var stores2 = {animals: stores.animals, roads: stores.roads, houses: stores.houses};
+        stores2.books = [['byAuthor', 'author']];
         return syncedDB.open('mydb', 2, stores2);
       }).then(function() {
         done();
       });
     });
     it('handles migrations with added indexes', function(done) {
-      var stores2 = [
-        ['animals',
+      var stores2 = {
+        animals: [
           ['byColor', 'color'],
           ['byName', 'name'],
           ['bySpecies', 'species'], // New
         ],
-        ['roads',
+        roads: [
           ['byLength', 'length'],
           ['byCost', 'cost'], // New
         ],
-        ['houses',
+        houses: [
           ['byStreet', 'street'],
         ]
-      ];
+      };
       syncedDB.open('mydb', 1, stores)
       .then(function() {
         return syncedDB.open('mydb', 2, stores2);
