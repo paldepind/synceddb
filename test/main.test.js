@@ -536,6 +536,33 @@ describe('SyncedDB', function() {
           done();
         });
       });
+      it('only sends records from specified store', function(done) {
+        var road = {length: 100, price: 1337};
+        var house = {street: 'Somewhere Street 1'};
+        onSend = function(msg) {
+          var sent = JSON.parse(msg);
+          console.log('sent');
+          console.log(sent);
+          ws.onmessage({data: JSON.stringify({
+            type: 'ok',
+            storeName: sent.storeName,
+            key: sent.record.key,
+            newVersion: 0,
+          })});
+        };
+        db.roads.put(road)
+        .then(function() {
+          return db.houses.put(house);
+        }).then(function(roadId) {
+          return db.pushToRemote('roads');
+        })
+        .then(function() {
+          var sent = JSON.parse(sendSpy.getCall(0).args[0]);
+          assert.deepEqual(sent.record, road);
+          assert.equal(sendSpy.callCount, 1);
+          done();
+        });
+      });
       it('synchonized records are marked as unchanged', function(done) {
         var road = {length: 100, price: 1337};
         onSend = function(msg) {

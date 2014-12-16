@@ -221,7 +221,7 @@ SDBObjectStoreInTransaction.prototype.get = function(keys) {
   var records = [];
   var IDBStore = this.IDBStore;
   return new ImmediateThenable(function(resolve, reject) {
-    var gets = keys.map(function(key) {
+    keys.forEach(function(key) {
       var req = IDBStore.get(key);
       req.onsuccess = function() {
         records.push(req.result);
@@ -398,8 +398,7 @@ SDBDatabase.prototype.read = function() {
   return this.transaction(args.slice(0, -1), 'read', args.slice(-1)[0]);
 };
 
-var forEachRecordChangedSinceSync = function(db, fn) {
-  var storeNames = Object.keys(db.stores);
+var forEachRecordChangedSinceSync = function(db, storeNames, fn) {
   db.transaction(storeNames, 'r', function() {
     var stores = toArray(arguments);
     stores.forEach(function(store) {
@@ -439,16 +438,15 @@ function handleRemotePushResponse(db, res, countdown) {
   }
 }
 
-var syncToRemote = function(ws, db) {
+var syncToRemote = function(db, ws, storeNames) {
   return new Promise(function(resolve, reject) {
     var counter = new Countdown();
     counter.onZero = resolve;
     getClientId(db, ws).then(function(clientId) {
-      var messageUnresolved = 0;
       ws.on('message', function(data) {
         handleRemotePushResponse(db, data, counter);
       });
-      forEachRecordChangedSinceSync(db, function(storeName, record) {
+      forEachRecordChangedSinceSync(db, storeNames, function(storeName, record) {
         counter.add(1);
         ws.send(createMsg(storeName, clientId, record));
       });
@@ -456,13 +454,13 @@ var syncToRemote = function(ws, db) {
   });
 };
 
-SDBDatabase.prototype.pushToRemote = function(startFn) {
+SDBDatabase.prototype.pushToRemote = function(/* storeNames */) {
   var db = this;
-  db.syncing = true;
+  var storeNames = arguments.length ? toArray(arguments) : Object.keys(db.stores);
   var ws = new WrappedSocket('ws://' + db.remote);
   return new Promise(function(resolve, reject) {
     ws.on('open', function () {
-      syncToRemote(ws, db).then(function() {
+      syncToRemote(db, ws, storeNames).then(function() {
         console.log('done syncing');
         resolve();
       });
@@ -530,8 +528,7 @@ function handleChanges(db, ws, recordsLeft, msg) {
 
 SDBDatabase.prototype.pullFromRemote = function() {
   var db = this;
-  var storeNames = toArray(arguments);
-  var storeName = storeNames[0];
+  var storeNames = arguments.length ? toArray(arguments) : Object.keys(db.stores);
   return db.then(function() {
     return getClientId(db);
   }).then(function(clientId) {
@@ -540,9 +537,11 @@ SDBDatabase.prototype.pullFromRemote = function() {
       var ws = new WrappedSocket('ws://' + db.remote);
       var recordsLeft = new Countdown(0);
       recordsLeft.onZero = resolve;
-      ws.on('open',
-        requestChangesToStore.bind(null, db, ws, storeName, clientId)
-      );
+      ws.on('open', function() {
+        storeNames.map(function(storeName) {
+          requestChangesToStore(db, ws, storeName, clientId);
+        });
+      });
       ws.on('message', function(msg) {
         handleChanges(db, ws, recordsLeft, msg);
       });
