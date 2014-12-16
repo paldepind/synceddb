@@ -76,8 +76,8 @@ var SDBIndex = function(name, db, store) {
 SDBIndex.prototype.get = function(/* keys */) {
   var records, index = this;
   var keys = toArray(arguments);
-  return index.db.transaction(index.store.name, 'r', function(stores) {
-    var txIndex = stores[index.store.name][index.name];
+  return index.db.transaction(index.store.name, 'r', function(store) {
+    var txIndex = store[index.name];
     txIndex.get.apply(txIndex, keys).then(function(recs) {
       records = recs;
     });
@@ -99,9 +99,8 @@ var SDBObjectStore = function(db, name, indexes) {
 SDBObjectStore.prototype.get = function() {
   var records, store = this;
   var keys = toArray(arguments);
-  return store.db.transaction(store.name, 'r', function(stores) {
-    var txStore = stores[store.name];
-    txStore.get.apply(txStore, keys).then(function(recs) {
+  return store.db.transaction(store.name, 'r', function(store) {
+    store.get.apply(store, keys).then(function(recs) {
       records = recs;
     });
   }).then(function() {
@@ -113,8 +112,8 @@ SDBObjectStore.prototype.put = function() {
   var store = this;
   var objs = toArray(arguments);
   var insertKeys;
-  return store.db.transaction(store.name, 'rw', function(stores) {
-    stores[store.name].put.apply(stores[store.name], objs).then(function(keys) {
+  return store.db.transaction(store.name, 'rw', function(store) {
+    store.put.apply(store, objs).then(function(keys) {
       insertKeys = keys;
     });
   }).then(function() {
@@ -325,13 +324,13 @@ SDBDatabase.prototype.catch = function(fn) {
 };
 
 function emitEvents(stores, dbStores) {
-  for (var name in stores) {
-    stores[name].changedRecords.forEach(function(change) {
-      dbStores[name].emit(change.type, {
+  stores.forEach(function(store) {
+    store.changedRecords.forEach(function(change) {
+      dbStores[store.name].emit(change.type, {
         record: change.record
       });
     });
-  }
+  });
 }
 
 SDBDatabase.prototype.transaction = function(storeNames, mode, fn) {
@@ -344,15 +343,14 @@ SDBDatabase.prototype.transaction = function(storeNames, mode, fn) {
   return db.then(function(res) {
     return new Promise(function(resolve, reject) {
       var tx = db.db.transaction(storeNames, mode);
-      var stores = {};
-      storeNames.forEach(function(s) {
-        stores[s] = new SDBObjectStoreInTransaction(db, s, tx.objectStore(s), db[s].indexes);
+      var stores = storeNames.map(function(s) {
+        return (new SDBObjectStoreInTransaction(db, s, tx.objectStore(s), db[s].indexes));
       });
       tx.oncomplete = function() {
         emitEvents(stores, db.stores);
         resolve();
       };
-      fn(stores);
+      fn.apply(null, stores);
     });
   });
 };
@@ -364,10 +362,11 @@ SDBDatabase.prototype.read = function() {
 
 var forEachRecordChangedSinceSync = function(db, fn) {
   var storeNames = Object.keys(db.stores);
-  db.transaction(storeNames, 'r', function(stores) {
-    storeNames.forEach(function(storeName) {
-      var boundFn = fn.bind(null, storeName);
-      stores[storeName].changedSinceSync.get(1)
+  db.transaction(storeNames, 'r', function() {
+    var stores = toArray(arguments);
+    stores.forEach(function(store) {
+      var boundFn = fn.bind(null, store.name);
+      store.changedSinceSync.get(1)
       .then(function(records) {
         records.forEach(boundFn);
       });
@@ -385,8 +384,7 @@ var createMsg = function(storeName, clientId, record) {
 };
 
 function handleRemoteOk(db, msg) {
-  return db.transaction(msg.storeName, 'rw', function(stores) {
-    var store = stores[msg.storeName];
+  return db.transaction(msg.storeName, 'rw', function(store) {
     store.get(msg.key).then(function(record) {
       record.changedSinceSync = 0;
       record.version = msg.newVersion;
@@ -442,21 +440,21 @@ SDBDatabase.prototype.pushToRemote = function(startFn) {
   });
 };
 
-function updateStoreSyncedTo(stores, storeName, time) {
-  stores.sdbMetaData.get(storeName + 'Meta')
+function updateStoreSyncedTo(metaStore, storeName, time) {
+  metaStore.get(storeName + 'Meta')
   .then(function(storeMeta) {
     storeMeta.syncedTo = time;
-    putValToStore(stores.sdbMetaData, storeMeta, true);
+    putValToStore(metaStore, storeMeta, true);
   });
 }
 
 function handleRecordChange(db, msg) {
   if (msg.type === 'create') {
     msg.record.changedSinceSync = 0;
-    return db.transaction([msg.storeName, 'sdbMetaData'], 'rw', function(stores) {
-      addValToStore(stores[msg.storeName], msg.record)
+    return db.transaction([msg.storeName, 'sdbMetaData'], 'rw', function(store, metaStore) {
+      addValToStore(store, msg.record)
       .then(function() {
-        updateStoreSyncedTo(stores, msg.storeName, msg.timestamp);
+        updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
       });
     });
   }
@@ -485,8 +483,8 @@ function getClientId(db, ws) {
         return meta.clientId;
       } else {
         meta.clientId = Math.random().toString(36); // FIXME
-        return db.transaction(['sdbMetaData'], 'rw', function(stores) {
-          putValToStore(stores.sdbMetaData, meta, true);
+        return db.transaction('sdbMetaData', 'rw', function(sdbMetaData) {
+          putValToStore(sdbMetaData, meta, true);
         }).then(function() {
           db.clientId = meta.clientId;
           return meta.clientId;

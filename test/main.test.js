@@ -173,19 +173,19 @@ describe('SyncedDB', function() {
       db = syncedDB.open('mydb', 1, stores);
     });
     it('gives requested stores', function(done) {
-      db.read('roads', 'houses', function(stores) {
-        assert(stores.roads);
-        assert(stores.houses);
+      db.read('roads', 'houses', function(roads, houses) {
+        assert(roads);
+        assert(houses);
       }).then(function() {
         done();
       });
     });
     it('can put and get', function(done) {
       var roadKey, houseKey;
-      db.read('roads', 'houses', function(stores) {
-        stores.roads.put({length: 100, price: 1337})
+      db.read('roads', 'houses', function(roads, houses) {
+        roads.put({length: 100, price: 1337})
         .then(function(key) { roadKey = key; });
-        stores.houses.put({street: 'Somewhere', built: 1891})
+        houses.put({street: 'Somewhere', built: 1891})
         .then(function(key) { houseKey = key; });
       }).then(function() {
         return db.houses.get(houseKey);
@@ -199,9 +199,9 @@ describe('SyncedDB', function() {
     });
     it('can put several records at once', function(done) {
       var keys;
-      db.read('roads', function(stores) {
-        stores.roads.put({length: 100, price: 1337},
-                         {length: 200, price: 2030})
+      db.read('roads', function(roads) {
+        roads.put({length: 100, price: 1337},
+                  {length: 200, price: 2030})
         .then(function(putKeys) { keys = putKeys; });
       }).then(function() {
         return db.roads.get(keys[0]);
@@ -214,26 +214,26 @@ describe('SyncedDB', function() {
       });
     });
     it('can get several records at once', function(done) {
-      var roads;
-      db.read('roads', function(stores) {
-        stores.roads.put({length: 100, price: 1337},
-                         {length: 200, price: 2030})
+      var foundRoads;
+      db.read('roads', function(roads) {
+        roads.put({length: 100, price: 1337},
+                  {length: 200, price: 2030})
         .then(function(keys) {
-          stores.roads.get(keys[0], keys[1])
-          .then(function(foundRoads) {
-            roads = foundRoads;
+          roads.get(keys[0], keys[1])
+          .then(function(found) {
+            foundRoads = found;
           });
         });
       }).then(function() {
-        assert(roads[0].length === 100);
-        assert(roads[1].length === 200);
+        assert(foundRoads[0].length === 100);
+        assert(foundRoads[1].length === 200);
         done();
       });
     });
     it('passes id when putting', function(done) {
       var called = false;
-      db.read('roads', function(stores) {
-        stores.roads.put({length: 100, price: 1337, key: 1})
+      db.read('roads', function(roads) {
+        roads.put({length: 100, price: 1337, key: 1})
         .then(function(id) {
           assert(id == 1);
           called = true;
@@ -244,10 +244,10 @@ describe('SyncedDB', function() {
       });
     });
     it('is possible to put and then get', function(done) {
-      db.transaction('roads', 'rw', function(stores) {
-        stores.roads.put({length: 100, price: 1337, key: 1})
+      db.transaction('roads', 'rw', function(roads) {
+        roads.put({length: 100, price: 1337, key: 1})
         .then(function(roadKey) {
-          stores.roads.get(1)
+          roads.get(1)
           .then(function(road) {
             assert(road.price === 1337);
             done();
@@ -258,13 +258,13 @@ describe('SyncedDB', function() {
     it('is possible to get and then put', function(done) {
       db.roads.put({length: 100, price: 1337})
       .then(function(putKey) {
-        db.transaction('roads', 'rw', function(stores) {
+        db.transaction('roads', 'rw', function(roads) {
           var road = {};
-          stores.roads.get(putKey)
+          roads.get(putKey)
           .then(function(r) {
             r.length = 110;
             r.key = 1;
-            stores.roads.put(r);
+            roads.put(r);
           });
         }).then(function() {
           return db.roads.get(1);
@@ -280,8 +280,8 @@ describe('SyncedDB', function() {
         var road;
         db.roads.put({length: 100, price: 1337})
         .then(function() {
-          return db.transaction('roads', 'r', function(stores) {
-            stores.roads.byLength.get(100)
+          return db.transaction('roads', 'r', function(roads) {
+            roads.byLength.get(100)
             .then(function(roads) {
               console.log('got road by lenght');
               console.log(roads);
@@ -296,12 +296,12 @@ describe('SyncedDB', function() {
       it('can get records by index in a specified range', function(done) {
         var foundHouses;
         db.houses.put({street: 'Somewhere 1'},
-                   {street: 'Somewhere 2'},
-                   {street: 'Somewhere 3'},
-                   {street: 'Somewhere 4'}
+                      {street: 'Somewhere 2'},
+                      {street: 'Somewhere 3'},
+                      {street: 'Somewhere 4'}
         ).then(function() {
-          return db.transaction(['houses'], 'r', function(stores) {
-            return stores.houses.byStreet.inRange({gt: 'Somewhere 2', lte: 'Somewhere 4'})
+          return db.transaction('houses', 'r', function(houses) {
+            return houses.byStreet.inRange({gt: 'Somewhere 2', lte: 'Somewhere 4'})
               .then(function(houses) { foundHouses = houses; });
           });
         }).then(function() {
@@ -390,22 +390,6 @@ describe('SyncedDB', function() {
         done();
       });
     });
-    /*
-    it('can get records in a specified range', function(done) {
-      db = syncedDB.open('mydb', 1, stores);
-      var houses = db.houses;
-      houses.put({street: 'Somewhere 1'},
-                 {street: 'Somewhere 2'},
-                 {street: 'Somewhere 3'},
-                 {street: 'Somewhere 4'}
-      ).then(function() {
-        return houses.inRange({gt: 'Somewhere 2', lte: 'Somewhere 4'});
-      }).then(function(foundHouses) {
-        assert(foundHouses.length === 2);
-        done();
-      });
-    });
-    */
     describe('Index', function() {
       var db, put, animals;
       beforeEach(function() {
@@ -475,8 +459,8 @@ describe('SyncedDB', function() {
     });
     it('emits event when creating object inside transactions', function(done) {
       db = syncedDB.open('mydb', 1, stores);
-      db.read('roads', function(s) {
-        s.roads.put({length: 100, price: 1337});
+      db.read('roads', function(roads) {
+        roads.put({length: 100, price: 1337});
       });
       db.roads.on('add', function(addedId) {
         done();
