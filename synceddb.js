@@ -67,6 +67,44 @@ ImmediateThenable.prototype._reject = function(val) {
   });
 };
 
+function WrappedSocket(url, protocol) {
+  var wws = this;
+  Events(wws);
+  var ws = this.ws = new WebSocket(url, protocol);
+  ws.onopen = function () {
+    console.log('Connection open');
+    wws.emit('open');
+  };
+  ws.onerror = function (error) {
+    console.log('Connection errror');
+    console.log(error);
+    wws.emit('error', error);
+  };
+  ws.onclose = function (e) {
+    console.log('Connection closed');
+    console.log(e);
+    wws.emit('close', e);
+  };
+  ws.onmessage = function(msg) {
+    console.log('Message recieved');
+    var data;
+    if (typeof msg.data === 'string') {
+      data = JSON.parse(msg.data);
+    } else {
+      data = msg.data;
+    }
+    wws.emit('message', data);
+  };
+}
+
+WrappedSocket.prototype.send = function(msg) {
+  if (isObject(msg)) {
+    this.ws.send(JSON.stringify(msg));
+  } else {
+    this.ws.send(msg);
+  }
+};
+
 var SDBIndex = function(name, db, store) {
   this.name = name;
   this.db = db;
@@ -407,10 +445,9 @@ var syncToRemote = function(ws, db) {
     counter.onZero = resolve;
     getClientId(db, ws).then(function(clientId) {
       var messageUnresolved = 0;
-      ws.onmessage = function(msg) {
-        var msgObj = JSON.parse(msg.data);
-        handleRemotePushResponse(db, msgObj, counter);
-      };
+      ws.on('message', function(data) {
+        handleRemotePushResponse(db, data, counter);
+      });
       forEachRecordChangedSinceSync(db, function(storeName, record) {
         counter.add(1);
         ws.send(createMsg(storeName, clientId, record));
@@ -422,21 +459,14 @@ var syncToRemote = function(ws, db) {
 SDBDatabase.prototype.pushToRemote = function(startFn) {
   var db = this;
   db.syncing = true;
-  var ws = new WebSocket('ws://' + db.remote);
+  var ws = new WrappedSocket('ws://' + db.remote);
   return new Promise(function(resolve, reject) {
-    ws.onopen = function () {
-      console.log('Connection established');
+    ws.on('open', function () {
       syncToRemote(ws, db).then(function() {
         console.log('done syncing');
         resolve();
       });
-    };
-    ws.onerror = function (error) {
-      console.log('Connection errror', error);
-    };
-    ws.onclose = function (e) {
-      console.log('Connection closed', e);
-    };
+    });
   });
 };
 
@@ -446,30 +476,6 @@ function updateStoreSyncedTo(metaStore, storeName, time) {
     storeMeta.syncedTo = time;
     putValToStore(metaStore, storeMeta, true);
   });
-}
-
-function handleRecordChange(db, msg) {
-  if (msg.type === 'create') {
-    msg.record.changedSinceSync = 0;
-    return db.transaction([msg.storeName, 'sdbMetaData'], 'rw', function(store, metaStore) {
-      addValToStore(store, msg.record)
-      .then(function() {
-        updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
-      });
-    });
-  }
-}
-
-function handleChanges(db, ws, recordsLeft) {
-  if (recordsLeft.val === 0) {
-    recordsLeft.add(0);
-  } else {
-    ws.onmessage = function(msg) {
-      var data = JSON.parse(msg.data);
-      handleRecordChange(db, data)
-      .then(recordsLeft.add.bind(recordsLeft, -1));
-    };
-  }
 }
 
 function getClientId(db, ws) {
@@ -497,13 +503,29 @@ function getClientId(db, ws) {
 function requestChangesToStore(db, ws, storeName, clientId) {
   db.sdbMetaData.get(storeName + 'Meta')
   .then(function(storeMeta) {
-    ws.send(JSON.stringify({
+    ws.send({
       type: 'get-changes',
       storeNames: storeName,
       clientId: clientId,
       since: storeMeta.syncedTo,
-    }));
+    });
   });
+}
+
+function handleChanges(db, ws, recordsLeft, msg) {
+  if (msg.type === 'sending-changes') {
+    recordsLeft.add(msg.nrOfRecordsToSync);
+  } else if (msg.type === 'create') {
+    msg.record.changedSinceSync = 0;
+    db.transaction([msg.storeName, 'sdbMetaData'], 'rw', function(store, metaStore) {
+      addValToStore(store, msg.record)
+      .then(function() {
+        updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
+      });
+    }).then(function() {
+      recordsLeft.add(-1);
+    });
+  }
 }
 
 SDBDatabase.prototype.pullFromRemote = function() {
@@ -515,25 +537,15 @@ SDBDatabase.prototype.pullFromRemote = function() {
   }).then(function(clientId) {
     db.syncing = true;
     return new Promise(function(resolve, reject) {
-      var ws = new WebSocket('ws://' + db.remote);
-      ws.onopen = requestChangesToStore.bind(null, db, ws, storeName, clientId);
-      ws.onerror = function (error) {
-        console.log('Connection errror');
-        console.log(error);
-      };
-      ws.onclose = function (e) {
-        console.log('Connection closed');
-        console.log(e);
-      };
-      ws.onmessage = function(msg) {
-        console.log('on msg');
-        var data = JSON.parse(msg.data);
-        if (data.type === 'sending-changes') {
-          var recordsLeft = new Countdown(data.nrOfRecordsToSync);
-          recordsLeft.onZero = resolve;
-          handleChanges(db, ws, recordsLeft);
-        }
-      };
+      var ws = new WrappedSocket('ws://' + db.remote);
+      var recordsLeft = new Countdown(0);
+      recordsLeft.onZero = resolve;
+      ws.on('open',
+        requestChangesToStore.bind(null, db, ws, storeName, clientId)
+      );
+      ws.on('message', function(msg) {
+        handleChanges(db, ws, recordsLeft, msg);
+      });
     });
   });
 };
