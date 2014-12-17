@@ -45,10 +45,22 @@ Countdown.prototype.add = function(n) {
   if (this.val === 0) this.onZero();
 };
 
+function resolve(val) {
+  this.thenCbs.forEach(function(fn) {
+    fn(val);
+  });
+};
+
+function reject(val) {
+  this.catchCbs.forEach(function(fn) {
+    fn(val);
+  });
+};
+
 function ImmediateThenable(fn) {
   this.thenCbs = [];
   this.catchCbs = [];
-  fn(this._resolve.bind(this), this._reject.bind(this));
+  fn(resolve.bind(this), reject.bind(this));
 }
 
 ImmediateThenable.prototype.then = function(cb) {
@@ -57,18 +69,6 @@ ImmediateThenable.prototype.then = function(cb) {
 
 ImmediateThenable.prototype.catch = function(cb) {
   this.catchCbs.push(cb);
-};
-
-ImmediateThenable.prototype._resolve = function(val) {
-  this.thenCbs.forEach(function(fn) {
-    fn(val);
-  });
-};
-
-ImmediateThenable.prototype._reject = function(val) {
-  this.catchCbs.forEach(function(fn) {
-    fn(val);
-  });
 };
 
 function WrappedSocket(url, protocol) {
@@ -189,7 +189,7 @@ SDBIndexInTransaction.prototype.get = function() {
   var records = [];
   var index = this.store.IDBStore.index(this.name);
   var countdown = new Countdown(keys.length);
-  return new Promise(function(resolve, reject) {
+  return new ImmediateThenable(function(resolve, reject) {
     countdown.onZero = function() {
       resolve(records);
     };
@@ -209,9 +209,9 @@ SDBIndexInTransaction.prototype.inRange = function(rangeObj) {
   return getInRange(index, range);
 };
 
-var SDBObjectStoreInTransaction = function(db, name, IDBStore, indexes) {
+var SDBObjectStoreInTransaction = function(name, tx, indexes) {
   this.name = name;
-  this.IDBStore = IDBStore;
+  this.IDBStore = tx.objectStore(name);
   this.changedRecords = [];
   this.indexes = {};
   indexes.forEach(function(i) {
@@ -220,8 +220,8 @@ var SDBObjectStoreInTransaction = function(db, name, IDBStore, indexes) {
   }, this);
 };
 
-SDBObjectStoreInTransaction.prototype.get = function(keys) {
-  keys = toArray(arguments);
+SDBObjectStoreInTransaction.prototype.get = function(/* keys */) {
+  var keys = toArray(arguments);
   var records = [];
   var IDBStore = this.IDBStore;
   return new ImmediateThenable(function(resolve, reject) {
@@ -387,7 +387,7 @@ SDBDatabase.prototype.transaction = function(storeNames, mode, fn) {
     return new Promise(function(resolve, reject) {
       var tx = db.db.transaction(storeNames, mode);
       var stores = storeNames.map(function(s) {
-        return (new SDBObjectStoreInTransaction(db, s, tx.objectStore(s), db[s].indexes));
+        return (new SDBObjectStoreInTransaction(s, tx, db[s].indexes));
       });
       tx.oncomplete = function() {
         emitEvents(stores, db.stores);
@@ -515,7 +515,7 @@ function requestChangesToStore(db, ws, storeName, clientId) {
   });
 }
 
-function handleChanges(db, ws, recordsLeft, msg) {
+function handleIncomingChanges(db, ws, recordsLeft, msg) {
   if (msg.type === 'sending-changes') {
     recordsLeft.add(msg.nrOfRecordsToSync);
   } else if (msg.type === 'create') {
@@ -548,7 +548,7 @@ SDBDatabase.prototype.pullFromRemote = function() {
         });
       });
       ws.on('message', function(msg) {
-        handleChanges(db, ws, recordsLeft, msg);
+        handleIncomingChanges(db, ws, recordsLeft, msg);
       });
     });
   });
