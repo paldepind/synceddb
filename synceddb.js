@@ -209,15 +209,25 @@ SDBIndexInTransaction.prototype.inRange = function(rangeObj) {
   return getInRange(index, range);
 };
 
-var SDBObjectStoreInTransaction = function(name, tx, indexes) {
-  this.name = name;
-  this.IDBStore = tx.objectStore(name);
-  this.changedRecords = [];
-  this.indexes = {};
-  indexes.forEach(function(i) {
+function emitChangeEvents(changes, dbStore) {
+  changes.forEach(function(change) {
+    dbStore.emit(change.type, {
+      record: change.record
+    });
+  });
+}
+var SDBObjectStoreInTransaction = function(name, tx, dbStore) {
+  var store = this;
+  store.name = name;
+  store.IDBStore = tx.objectStore(name);
+  store.changedRecords = [];
+  store.indexes = {};
+  dbStore.indexes.forEach(function(i) {
     this.indexes[i] = new SDBIndexInTransaction(i, this);
     this[i] = this[i] || this.indexes[i];
   }, this);
+  tx.addEventListener('complete',
+                      emitChangeEvents.bind(null, store.changedRecords, dbStore));
 };
 
 SDBObjectStoreInTransaction.prototype.get = function(/* keys */) {
@@ -366,16 +376,6 @@ SDBDatabase.prototype.catch = function(fn) {
   return this.promise.catch(fn);
 };
 
-function emitEvents(stores, dbStores) {
-  stores.forEach(function(store) {
-    store.changedRecords.forEach(function(change) {
-      dbStores[store.name].emit(change.type, {
-        record: change.record
-      });
-    });
-  });
-}
-
 SDBDatabase.prototype.transaction = function(storeNames, mode, fn) {
   storeNames = [].concat(storeNames);
   mode = mode === 'r'    ? 'readonly'
@@ -387,10 +387,9 @@ SDBDatabase.prototype.transaction = function(storeNames, mode, fn) {
     return new Promise(function(resolve, reject) {
       var tx = db.db.transaction(storeNames, mode);
       var stores = storeNames.map(function(s) {
-        return (new SDBObjectStoreInTransaction(s, tx, db[s].indexes));
+        return (new SDBObjectStoreInTransaction(s, tx, db[s]));
       });
       tx.oncomplete = function() {
-        emitEvents(stores, db.stores);
         resolve();
       };
       fn.apply(null, stores);
