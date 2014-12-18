@@ -327,6 +327,8 @@ var SDBDatabase = function(name, version, storeDecs, migrations) {
   db.name = name;
   db.remote = '';
   db.version = version;
+  db.recordsToSync = new Countdown();
+  db.recordsLeft = new Countdown();
   db.stores = {};
   var stores = {};
   eachKeyVal(storeDecs, function(storeName, indexes) {
@@ -419,24 +421,15 @@ function handleRemoteOk(db, msg) {
   });
 }
 
-function handleRemotePushResponse(db, res, countdown) {
-  if (res.type === 'ok') {
-    handleRemoteOk(db, res).then(function() {
-      countdown.add(-1);
-    });
-  }
-}
-
-var syncToRemote = function(db, ws, storeNames) {
+function syncToRemote(db, ws, storeNames) {
   return new Promise(function(resolve, reject) {
-    var counter = new Countdown();
-    counter.onZero = resolve;
+    db.recordsToSync.onZero = resolve;
     getClientId(db, ws).then(function(clientId) {
-      ws.on('message', function(data) {
-        handleRemotePushResponse(db, data, counter);
+      ws.on('message', function(msg) {
+        handleIncomingMessage(db, ws, msg);
       });
       forEachRecordChangedSinceSync(db, storeNames, function(storeName, record) {
-        counter.add(1);
+        db.recordsToSync.add(1);
         ws.send(createMsg(storeName, clientId, record));
       });
     });
@@ -499,10 +492,11 @@ function requestChangesToStore(db, ws, storeName, clientId) {
   });
 }
 
-function handleIncomingChanges(db, ws, recordsLeft, msg) {
-  if (msg.type === 'sending-changes') {
-    recordsLeft.add(msg.nrOfRecordsToSync);
-  } else if (msg.type === 'create') {
+var handleIncomingMessageByType = {
+  'sending-changes': function(db, ws, msg) {
+    db.recordsLeft.add(msg.nrOfRecordsToSync);
+  },
+  'create': function(db, ws, msg) {
     msg.record.changedSinceSync = 0;
     db.transaction([msg.storeName, 'sdbMetaData'], 'rw', function(store, metaStore) {
       addValToStore(store, msg.record)
@@ -510,9 +504,33 @@ function handleIncomingChanges(db, ws, recordsLeft, msg) {
         updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
       });
     }).then(function() {
-      recordsLeft.add(-1);
+      db.recordsLeft.add(-1);
     });
-  }
+  },
+  'update': function(db, ws, msg) {
+    console.log('update coming in');
+    db.transaction([msg.storeName, 'sdbMetaData'], 'rw', function(store, metaStore) {
+      store.get(msg.key)
+      .then(function(record) {
+        dffptch.patch(record, msg.diff); 
+        store.put(record)
+        .then(function() {
+          updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
+        });
+      });
+    }).then(function() {
+      db.recordsLeft.add(-1);
+    });
+  },
+  'ok': function(db, ws, msg) {
+    handleRemoteOk(db, msg).then(function() {
+      db.recordsToSync.add(-1);
+    });
+  },
+};
+
+function handleIncomingMessage(db, ws, msg) {
+  handleIncomingMessageByType[msg.type](db, ws, msg);
 }
 
 SDBDatabase.prototype.pullFromRemote = function() {
@@ -524,15 +542,14 @@ SDBDatabase.prototype.pullFromRemote = function() {
     db.syncing = true;
     return new Promise(function(resolve, reject) {
       var ws = new WrappedSocket('ws://' + db.remote);
-      var recordsLeft = new Countdown(0);
-      recordsLeft.onZero = resolve;
+      db.recordsLeft.onZero = resolve;
       ws.on('open', function() {
         storeNames.map(function(storeName) {
           requestChangesToStore(db, ws, storeName, clientId);
         });
       });
       ws.on('message', function(msg) {
-        handleIncomingChanges(db, ws, recordsLeft, msg);
+        handleIncomingMessage(db, ws, msg);
       });
     });
   });

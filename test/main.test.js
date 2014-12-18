@@ -634,6 +634,50 @@ describe('SyncedDB', function() {
           done();
         });
       });
+      it('handles changed documents', function(done) {
+        var road = {length: 100, price: 1337};
+        var roadKey;
+        onSend = function(raw) {
+          var msg = JSON.parse(raw);
+          console.log(msg);
+          if (msg.type === 'create') {
+            ws.onmessage({data: JSON.stringify({
+              type: 'ok',
+              storeName: 'roads',
+              key: msg.record.key,
+              newVersion: 0,
+            })});
+          } else {
+            console.log('sending change');
+            ws.onmessage({data: JSON.stringify({
+              type: 'sending-changes',
+              nrOfRecordsToSync: 1
+            })});
+            ws.onmessage({data: JSON.stringify({
+              type: 'update',
+              storeName: 'roads',
+              key: roadKey,
+              timestamp: 1,
+              version: 1,
+              diff: {m: {0: 110}},
+            })});
+          }
+        };
+        db.roads.put(road)
+        .then(function(key) {
+          roadKey = key;
+          return db.pushToRemote();
+        })
+        .then(function() {
+          console.log('pull from rem ((((((((((((((((((((((((((((');
+          db.pullFromRemote();
+        }).then(function() {
+          return db.roads.get(roadKey);
+        }).then(function(road) {
+          assert(road.changedSinceSync === 0);
+          done();
+        });
+      });
       it('requests changes since last sync', function(done) {
         onSend = function(msg) {
           var data = JSON.parse(msg);
