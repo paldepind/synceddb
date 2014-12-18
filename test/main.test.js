@@ -248,7 +248,7 @@ describe('SyncedDB', function() {
       db.transaction('roads', 'rw', function(roads) {
         roads.put({length: 100, price: 1337, key: 1})
         .then(function(roadKey) {
-          roads.get(1)
+          roads.get(roadKey)
           .then(function(road) {
             assert(road.price === 1337);
             done();
@@ -270,7 +270,6 @@ describe('SyncedDB', function() {
         }).then(function() {
           return db.roads.get(1);
         }).then(function(road) {
-          console.log(road);
           assert(road.length === 110);
           done();
         });
@@ -284,12 +283,29 @@ describe('SyncedDB', function() {
           return db.transaction('roads', 'r', function(roads) {
             roads.byLength.get(100)
             .then(function(roads) {
-              console.log('got road by lenght');
-              console.log(roads);
               road = roads[0];
             });
           }).then(function() {
             assert.equal(road.price, 1337);
+            done();
+          });
+        });
+      });
+      it('can get by indexes and continue in transaction', function(done) {
+        var road1, road2;
+        db.roads.put({length: 100, price: 1337})
+        .then(function() {
+          return db.transaction('roads', 'r', function(roads) {
+            roads.byLength.get(100)
+            .then(function(foundRoads) {
+              road1 = foundRoads[0];
+              roads.get(road1.key).then(function(r) {
+                road2 = r;
+              });
+            });
+          }).then(function() {
+            assert.equal(road1.price, 1337);
+            assert.equal(road2.price, 1337);
             done();
           });
         });
@@ -306,8 +322,6 @@ describe('SyncedDB', function() {
               .then(function(houses) { foundHouses = houses; });
           });
         }).then(function() {
-          console.log('foundHouses');
-          console.log(foundHouses);
           assert(foundHouses.length === 2);
           done();
         });
@@ -354,7 +368,6 @@ describe('SyncedDB', function() {
       });
       function postAdd() {
         db.roads.get('road1', 'road2').then(function(roads) {
-          console.log(roads);
           assert(roads[0].length === 10);
           assert(roads[1].length === 20);
           IDBDb.close();
@@ -405,8 +418,6 @@ describe('SyncedDB', function() {
         put.then(function() {
           return animals.byName.get('Thumper');
         }).then(function(thumpers) {
-          console.log('thumper');
-          console.log(thumpers);
           assert.equal(thumpers[0].race, 'rabbit');
           assert.equal(thumpers[0].color, 'brown');
           done();
@@ -451,8 +462,6 @@ describe('SyncedDB', function() {
       .then(function() {
         return db.roads.put(road);
       }).then(function() {
-        console.log(spy1.callCount);
-        console.log(spy2.callCount);
         assert(spy1.calledOnce);
         assert(spy2.calledOnce);
         done();
@@ -530,8 +539,7 @@ describe('SyncedDB', function() {
         db.roads.put(road)
         .then(function(roadId) {
           return db.pushToRemote();
-        })
-        .then(function() {
+        }).then(function() {
           var sent = JSON.parse(sendSpy.getCall(0).args[0]);
           assert.deepEqual(sent.record, road);
           done();
@@ -542,8 +550,6 @@ describe('SyncedDB', function() {
         var house = {street: 'Somewhere Street 1'};
         onSend = function(msg) {
           var sent = JSON.parse(msg);
-          console.log('sent');
-          console.log(sent);
           ws.onmessage({data: JSON.stringify({
             type: 'ok',
             storeName: sent.storeName,
@@ -581,7 +587,6 @@ describe('SyncedDB', function() {
           return db.pushToRemote();
         })
         .then(function() {
-          console.log(road.key);
           return db.roads.get(road.key);
         }).then(function(road) {
           assert(road.changedSinceSync === 0);
@@ -602,7 +607,6 @@ describe('SyncedDB', function() {
         };
         db.pullFromRemote('roads')
         .then(function() {
-          console.log('sync done');
           done();
         });
       });
@@ -680,7 +684,6 @@ describe('SyncedDB', function() {
         });
         db.pullFromRemote('roads')
         .then(function() {
-          console.log(key);
           assert.equal(key, 'foo');
           done();
         });

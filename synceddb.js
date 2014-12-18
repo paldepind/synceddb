@@ -115,57 +115,108 @@ var SDBIndex = function(name, db, store) {
   this.store = store;
 };
 
-SDBIndex.prototype.get = function(/* keys */) {
-  var records, index = this;
-  var keys = toArray(arguments);
-  return index.db.transaction(index.store.name, 'r', function(store) {
-    var txIndex = store[index.name];
-    txIndex.get.apply(txIndex, keys).then(function(recs) {
-      records = recs;
+function doIndexGet(idx, ranges, tx, resolve, reject) {
+  var records = [];
+  var index = idx.store.IDBStore.index(idx.name);
+  var countdown = new Countdown(ranges.length);
+  countdown.onZero = function() {
+    resolve(records);
+  };
+  ranges.forEach(function(range) {
+    getInRange(index, range)
+    .then(function(recs) {
+      records = records.concat(recs);
+      countdown.add(-1);
     });
-  }).then(function() {
-    return records;
+  });
+}
+
+SDBIndex.prototype.get = function(/* ranges */) {
+  var index = this;
+  var ranges = toArray(arguments).map(IDBKeyRange.only);
+  return doInStoreTx('readonly', index.store, function(tx, resolve, reject) {
+    return doIndexGet(index, ranges, tx, resolve, reject);
   });
 };
 
-var SDBObjectStore = function(db, name, indexes) {
-  this.name = name;
-  this.db = db;
-  this.indexes = indexes;
-  Events(this);
-  indexes.forEach(function(i) {
-    this[i] = new SDBIndex(i, db, this);
-  }, this);
-};
-
-SDBObjectStore.prototype.get = function() {
-  var records, store = this;
-  var keys = toArray(arguments);
-  return store.db.transaction(store.name, 'r', function(store) {
-    store.get.apply(store, keys).then(function(recs) {
-      records = recs;
-    });
-  }).then(function() {
-    return records;
+SDBIndex.prototype.inRange = function(/* ranges */) {
+  var index = this;
+  var ranges = toArray(arguments).map(createKeyRange);
+  return doInStoreTx('readonly', index.store, function(tx, resolve, reject) {
+    return doIndexGet(index, ranges, tx, resolve, reject);
   });
 };
 
-SDBObjectStore.prototype.put = function() {
+function setStoreTx(store, tx) {
+  store.IDBStore = tx.objectStore(store.name);
+  tx.addEventListener('complete', function() {
+    emitChangeEvents(store.changedRecords, store.db.stores[store.name]);
+    store.changedRecords.length = 0;
+  });
+}
+
+var SDBObjectStore = function(db, name, indexes, tx) {
   var store = this;
-  var objs = toArray(arguments);
-  var insertKeys;
-  return store.db.transaction(store.name, 'rw', function(store) {
-    store.put.apply(store, objs).then(function(keys) {
-      insertKeys = keys;
+  store.name = name;
+  store.db = db;
+  store.indexes = indexes;
+  store.tx = tx;
+  store.changedRecords = [];
+  Events(store);
+  indexes.forEach(function(i) {
+    store[i] = new SDBIndex(i, db, store);
+  });
+  if (tx) setStoreTx(store, tx);
+};
+
+SDBObjectStore.prototype.get = function(/* keys */) {
+  var store = this;
+  var keys = toArray(arguments);
+  return doInStoreTx('readonly', store, function(tx, resolve, reject) {
+    var records = [];
+    keys.forEach(function(key) {
+      var req = store.IDBStore.get(key);
+      req.onsuccess = function() {
+        records.push(req.result);
+        if (keys.length === records.length)
+          resolve(keys.length == 1 ? records[0] : records);
+      };
     });
-  }).then(function() {
-    return insertKeys;
   });
 };
 
-var SDBIndexInTransaction = function(name, store) {
-  this.name = name;
-  this.store = store;
+function doInStoreTx(mode, store, cb) {
+  if (store.tx) { // We're in transaction
+    return (new ImmediateThenable(function(resolve, reject) {
+      cb(store.tx, resolve, reject);
+    }));
+  } else {
+    return store.db.then(function() {
+      var tx = store.db.db.transaction(store.name, mode);
+      setStoreTx(store, tx);
+      return (new Promise(function(resolve, reject) {
+        var res;
+        cb(tx, function(r) { res = r; }, reject);
+        tx.oncomplete = function() { resolve(res); };
+      }));
+    });
+  }
+}
+
+SDBObjectStore.prototype.put = function(/* recs */) {
+  var recs = toArray(arguments);
+  var store = this;
+  return doInStoreTx('readwrite', store, function(tx, resolve, reject) {
+    recs.forEach(function(val) {
+      val.changedSinceSync = 1;
+      if (val.serverId && !val.remoteOriginal) {
+        // FIXME
+      }
+    });
+    putValsToStore(store, recs).then(function(ks) {
+      resolve(ks);
+    });
+  });
 };
 
 function getInRange(index, range) {
@@ -184,31 +235,6 @@ function getInRange(index, range) {
   });
 }
 
-SDBIndexInTransaction.prototype.get = function() {
-  var keys = toArray(arguments);
-  var records = [];
-  var index = this.store.IDBStore.index(this.name);
-  var countdown = new Countdown(keys.length);
-  return new ImmediateThenable(function(resolve, reject) {
-    countdown.onZero = function() {
-      resolve(records);
-    };
-    keys.forEach(function(key) {
-      getInRange(index, IDBKeyRange.only(key))
-      .then(function(recs) {
-        records = records.concat(recs);
-        countdown.add(-1);
-      });
-    });
-  });
-};
-
-SDBIndexInTransaction.prototype.inRange = function(rangeObj) {
-  var index = this.store.IDBStore.index(this.name);
-  var range = createKeyRange(rangeObj);
-  return getInRange(index, range);
-};
-
 function emitChangeEvents(changes, dbStore) {
   changes.forEach(function(change) {
     dbStore.emit(change.type, {
@@ -216,36 +242,6 @@ function emitChangeEvents(changes, dbStore) {
     });
   });
 }
-var SDBObjectStoreInTransaction = function(name, tx, dbStore) {
-  var store = this;
-  store.name = name;
-  store.IDBStore = tx.objectStore(name);
-  store.changedRecords = [];
-  store.indexes = {};
-  dbStore.indexes.forEach(function(i) {
-    this.indexes[i] = new SDBIndexInTransaction(i, this);
-    this[i] = this[i] || this.indexes[i];
-  }, this);
-  tx.addEventListener('complete',
-                      emitChangeEvents.bind(null, store.changedRecords, dbStore));
-};
-
-SDBObjectStoreInTransaction.prototype.get = function(/* keys */) {
-  var keys = toArray(arguments);
-  var records = [];
-  var IDBStore = this.IDBStore;
-  return new ImmediateThenable(function(resolve, reject) {
-    keys.forEach(function(key) {
-      var req = IDBStore.get(key);
-      req.onsuccess = function() {
-        records.push(req.result);
-        if (records.length === keys.length) {
-          resolve(keys.length == 1 ? records[0] : records);
-        }
-      };
-    });
-  });
-};
 
 function insertValInStore(method, store, val, silent) {
   var IDBStore = store.IDBStore;
@@ -279,17 +275,6 @@ var insertValsInStore = function(method, store, vals) {
 
 var putValsToStore = insertValsInStore.bind(null, 'put');
 var addValsToStore = insertValsInStore.bind(null, 'add');
-
-SDBObjectStoreInTransaction.prototype.put = function() {
-  var vals = toArray(arguments);
-  vals.forEach(function(val) {
-    val.changedSinceSync = 1;
-    if (val.serverId && !val.remoteOriginal) {
-      // FIXME
-    }
-  });
-  return putValsToStore(this, vals);
-};
 
 var createKeyRange = function(r) {
   var gt   = 'gt' in r,
@@ -387,7 +372,7 @@ SDBDatabase.prototype.transaction = function(storeNames, mode, fn) {
     return new Promise(function(resolve, reject) {
       var tx = db.db.transaction(storeNames, mode);
       var stores = storeNames.map(function(s) {
-        return (new SDBObjectStoreInTransaction(s, tx, db[s]));
+        return (new SDBObjectStore(db, s, db[s].indexes, tx));
       });
       tx.oncomplete = function() {
         resolve();
