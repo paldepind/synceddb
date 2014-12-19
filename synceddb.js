@@ -27,6 +27,10 @@ function eachKeyVal(obj, fn) {
   Object.keys(obj).forEach(function(key) { fn(key, obj[key]); });
 }
 
+function copyRecord(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
 var handleVersionChange = function(e) {
   // The database is being deleted or opened with
   // a newer version, possibly in another tab
@@ -222,10 +226,15 @@ SDBObjectStore.prototype.put = function(/* recs */) {
   var recs = toArray(arguments);
   var store = this;
   return doInStoreTx('readwrite', store, function(tx, resolve, reject) {
-    recs.forEach(function(val) {
-      val.changedSinceSync = 1;
-      if (val.serverId && !val.remoteOriginal) {
-        // FIXME
+    recs.forEach(function(record) {
+      if (record.changedSinceSync === 0) {
+        var req = store.IDBStore.get(record.key);
+        req.onsuccess = function() {
+          record.remoteOriginal = copyRecord(req.result);
+          record.changedSinceSync = 1;
+        };
+      } else {
+        record.changedSinceSync = 1;
       }
     });
     putValsToStore(store, recs).then(function(ks) {
@@ -527,10 +536,9 @@ var handleIncomingMessageByType = {
       store.get(msg.key)
       .then(function(record) {
         dffptch.patch(record, msg.diff);
-        store.put(record)
-        .then(function() {
-          updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
-        });
+        return store.put(record);
+      }).then(function() {
+        updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
       });
     }).then(function() {
       db.recordsLeft.add(-1);

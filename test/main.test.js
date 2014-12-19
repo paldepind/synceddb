@@ -662,6 +662,61 @@ describe('SyncedDB', function() {
           done();
         });
       });
+      it('handles created documents', function(done) {
+        onSend = function(msg) {
+          var data = JSON.parse(msg);
+          assert.equal(data.type, 'get-changes');
+          assert.deepEqual(data.storeNames, 'roads');
+          ws.onmessage({data: JSON.stringify({
+            type: 'sending-changes',
+            nrOfRecordsToSync: 1
+          })});
+          ws.onmessage({data: JSON.stringify({
+            type: 'create',
+            storeName: 'roads',
+            timestamp: 1,
+            record: {version: 0, length: 133, price: 1000, key: 'foo'}
+          })});
+        };
+        db.pullFromRemote('roads')
+        .then(function() {
+          return db.roads.byLength.get(133);
+        }).then(function(road) {
+          assert.equal(road[0].price, 1000);
+          done();
+        });
+      });
+      it('saves original remote version', function(done) {
+        var roads;
+        onSend = function(msg) {
+          var data = JSON.parse(msg);
+          assert.equal(data.type, 'get-changes');
+          assert.deepEqual(data.storeNames, 'roads');
+          ws.onmessage({data: JSON.stringify({
+            type: 'sending-changes',
+            nrOfRecordsToSync: 1
+          })});
+          ws.onmessage({data: JSON.stringify({
+            type: 'create',
+            storeName: 'roads',
+            timestamp: 1,
+            record: {version: 0, length: 133, price: 1000, key: 'foo'}
+          })});
+        };
+        db.pullFromRemote('roads')
+        .then(function() {
+          return db.roads.byLength.get(133);
+        }).then(function(roads) {
+          road = roads[0];
+          road.price = 1300;
+          return db.roads.put(road);
+        }).then(function() {
+          console.log(road);
+          assert.equal(road.price, 1300);
+          assert.equal(road.remoteOriginal.price, 1000);
+          done();
+        });
+      });
       it('handles changed documents', function(done) {
         var road = {length: 100, price: 1337};
         var roadKey;
