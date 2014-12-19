@@ -432,6 +432,18 @@ describe('SyncedDB', function() {
           done();
         });
       });
+      it('can get all records', function(done) {
+        db.houses.put({street: 'Somewhere 7', built: 1982},
+                      {street: 'Somewhere 8', built: 1993},
+                      {street: 'Somewhere 9', built: 2001})
+        .then(function(putKeys) {
+          return db.houses.byStreet.getAll();
+        }).then(function(allHouses) {
+          console.log(allHouses);
+          assert.equal(allHouses.length, 3);
+          done();
+        });
+      });
       it('returns an array if store isnt unique', function(done) {
         put.then(function() {
           return animals.byColor.get('brown');

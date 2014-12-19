@@ -139,6 +139,12 @@ SDBIndex.prototype.get = function(/* ranges */) {
   });
 };
 
+SDBIndex.prototype.getAll = function() {
+  var index = this;
+  return doInStoreTx('readonly', index.store, function(tx, resolve, reject) {
+    return doIndexGet(index, [undefined], tx, resolve, reject);
+  });
+};
 SDBIndex.prototype.inRange = function(/* ranges */) {
   var index = this;
   var ranges = toArray(arguments).map(createKeyRange);
