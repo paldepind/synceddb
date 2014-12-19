@@ -244,15 +244,31 @@ describe('SyncedDB', function() {
         done();
       });
     });
-    it('is possible to put and then get', function(done) {
+    it('support promise chaining with simple values', function(done) {
+      var key;
+      db.read('roads', function(roads) {
+        roads.put({length: 100, price: 1337})
+        .then(function(k) {
+          console.log('then');
+          console.log(k);
+          return k;
+        }).then(function(k) {
+          console.log('second then');
+          key = k;
+        });
+      }).then(function() {
+        assert(key);
+        done();
+      });
+    });
+    it('is possible to put and then get in promise chain', function(done) {
       db.transaction('roads', 'rw', function(roads) {
         roads.put({length: 100, price: 1337, key: 1})
         .then(function(roadKey) {
-          roads.get(roadKey)
-          .then(function(road) {
-            assert(road.price === 1337);
-            done();
-          });
+          return roads.get(roadKey);
+        }).then(function(road) {
+          assert(road.price === 1337);
+          done();
         });
       });
     });
@@ -679,8 +695,7 @@ describe('SyncedDB', function() {
         .then(function(key) {
           roadKey = key;
           return db.pushToRemote();
-        })
-        .then(function() {
+        }).then(function() {
           console.log('pull from rem ((((((((((((((((((((((((((((');
           db.pullFromRemote();
         }).then(function() {

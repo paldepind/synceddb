@@ -45,26 +45,35 @@ Countdown.prototype.add = function(n) {
   if (this.val === 0) this.onZero();
 };
 
-function resolve(val) {
-  this.thenCbs.forEach(function(fn) {
-    fn(val);
-  });
-};
-
-function reject(val) {
-  this.catchCbs.forEach(function(fn) {
-    fn(val);
-  });
-};
-
 function ImmediateThenable(fn) {
-  this.thenCbs = [];
-  this.catchCbs = [];
-  fn(resolve.bind(this), reject.bind(this));
+  this._thenCbs = [];
+  this._catchCbs = [];
+  fn(this._resolve.bind(this), this._reject.bind(this));
 }
 
-ImmediateThenable.prototype.then = function(cb) {
-  this.thenCbs.push(cb);
+ImmediateThenable.prototype._resolve = function(val) {
+  if (val && typeof val.then == 'function') {
+    val.then(this._resolve.bind(this));
+  } else {
+    this._thenCbs.forEach(function(fn) {
+      fn(val);
+    });
+  }
+};
+
+ImmediateThenable.prototype._reject = function(val) {
+  this._catchCbs.forEach(function(fn) {
+    fn(val);
+  });
+};
+
+ImmediateThenable.prototype.then = function(onFulfilled) {
+  var self = this;
+  return (new ImmediateThenable(function(resolve, reject) {
+    self._thenCbs.push(function(result) {
+      resolve(onFulfilled(result));
+    });
+  }));
 };
 
 ImmediateThenable.prototype.catch = function(cb) {
@@ -514,11 +523,10 @@ var handleIncomingMessageByType = {
     });
   },
   'update': function(db, ws, msg) {
-    console.log('update coming in');
     db.transaction([msg.storeName, 'sdbMetaData'], 'rw', function(store, metaStore) {
       store.get(msg.key)
       .then(function(record) {
-        dffptch.patch(record, msg.diff); 
+        dffptch.patch(record, msg.diff);
         store.put(record)
         .then(function() {
           updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
