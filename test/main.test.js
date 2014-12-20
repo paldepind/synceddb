@@ -771,6 +771,45 @@ describe('SyncedDB', function() {
           done();
         });
       });
+      it('handles deleted documents', function(done) {
+        var road = {length: 100, price: 1337};
+        var roadKey;
+        onSend = function(raw) {
+          var msg = JSON.parse(raw);
+          if (msg.type === 'create') {
+            ws.onmessage({data: JSON.stringify({
+              type: 'ok',
+              storeName: 'roads',
+              key: msg.record.key,
+              newVersion: 0,
+            })});
+          } else {
+            ws.onmessage({data: JSON.stringify({
+              type: 'sending-changes',
+              nrOfRecordsToSync: 1
+            })});
+            ws.onmessage({data: JSON.stringify({
+              type: 'delete',
+              storeName: 'roads',
+              key: roadKey,
+              timestamp: 1,
+              version: 1,
+            })});
+          }
+        };
+        db.roads.put(road)
+        .then(function(key) {
+          roadKey = key;
+          return db.pushToRemote();
+        }).then(function() {
+          return db.pullFromRemote();
+        }).then(function() {
+          return db.roads.get(roadKey);
+        }).catch(function(err) {
+          assert.equal(err.type, 'KeyNotFoundError');
+          done();
+        });
+      });
       it('requests changes since last sync', function(done) {
         onSend = function(msg) {
           var data = JSON.parse(msg);

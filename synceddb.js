@@ -548,6 +548,16 @@ var handleIncomingMessageByType = {
       db.recordsLeft.add(-1);
     });
   },
+  'delete': function(db, ws, msg) {
+    db.transaction([msg.storeName, 'sdbMetaData'], 'rw', function(store, metaStore) {
+      store.delete(msg.key)
+      .then(function() {
+        updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
+      });
+    }).then(function() {
+      db.recordsLeft.add(-1);
+    });
+  },
   'ok': function(db, ws, msg) {
     handleRemoteOk(db, msg).then(function() {
       db.recordsToSync.add(-1);
