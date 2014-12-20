@@ -249,11 +249,8 @@ describe('SyncedDB', function() {
       db.read('roads', function(roads) {
         roads.put({length: 100, price: 1337})
         .then(function(k) {
-          console.log('then');
-          console.log(k);
           return k;
         }).then(function(k) {
-          console.log('second then');
           key = k;
         });
       }).then(function() {
@@ -369,6 +366,13 @@ describe('SyncedDB', function() {
         });
       }
     });
+    it('rejects when key not found', function(done) {
+      db.roads.get('someKey')
+      .catch(function (err) {
+        assert.equal(err.type, 'KeyNotFoundError');
+        done();
+      });
+    });
     it('can get several records by key', function(done) {
       var IDBDb;
       db.then(function(db) {
@@ -455,7 +459,6 @@ describe('SyncedDB', function() {
         .then(function(putKeys) {
           return db.houses.byStreet.getAll();
         }).then(function(allHouses) {
-          console.log(allHouses);
           assert.equal(allHouses.length, 3);
           done();
         });
@@ -711,7 +714,6 @@ describe('SyncedDB', function() {
           road.price = 1300;
           return db.roads.put(road);
         }).then(function() {
-          console.log(road);
           assert.equal(road.price, 1300);
           assert.equal(road.remoteOriginal.price, 1000);
           done();
@@ -722,7 +724,6 @@ describe('SyncedDB', function() {
         var roadKey;
         onSend = function(raw) {
           var msg = JSON.parse(raw);
-          console.log(msg);
           if (msg.type === 'create') {
             ws.onmessage({data: JSON.stringify({
               type: 'ok',
@@ -731,7 +732,6 @@ describe('SyncedDB', function() {
               newVersion: 0,
             })});
           } else {
-            console.log('sending change');
             ws.onmessage({data: JSON.stringify({
               type: 'sending-changes',
               nrOfRecordsToSync: 1
@@ -751,7 +751,6 @@ describe('SyncedDB', function() {
           roadKey = key;
           return db.pushToRemote();
         }).then(function() {
-          console.log('pull from rem ((((((((((((((((((((((((((((');
           db.pullFromRemote();
         }).then(function() {
           return db.roads.get(roadKey);

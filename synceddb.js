@@ -136,11 +136,16 @@ function doIndexGet(idx, ranges, tx, resolve, reject) {
     resolve(records);
   };
   ranges.forEach(function(range) {
-    getInRange(index, range)
-    .then(function(recs) {
-      records = records.concat(recs);
-      countdown.add(-1);
-    });
+    var req = index.openCursor(range);
+    req.onsuccess = function() {
+      var cursor = req.result;
+      if (cursor) {
+        records.push(cursor.value);
+        cursor.continue();
+      } else {
+        countdown.add(-1);
+      }
+    };
   });
 }
 
@@ -196,7 +201,9 @@ SDBObjectStore.prototype.get = function(/* keys */) {
     keys.forEach(function(key) {
       var req = store.IDBStore.get(key);
       req.onsuccess = function() {
-        records.push(req.result);
+        req.result !== undefined ? records.push(req.result)
+                                 : reject({type: 'KeyNotFoundError',
+                                           key: key});
         if (keys.length === records.length)
           resolve(keys.length == 1 ? records[0] : records);
       };
@@ -242,22 +249,6 @@ SDBObjectStore.prototype.put = function(/* recs */) {
     });
   });
 };
-
-function getInRange(index, range) {
-  return new ImmediateThenable(function(resolve, reject) {
-    var records = [];
-    var req = index.openCursor(range);
-    req.onsuccess = function() {
-      var cursor = req.result;
-      if (cursor) {
-        records.push(cursor.value);
-        cursor.continue();
-      } else {
-        resolve(records);
-      }
-    };
-  });
-}
 
 function emitChangeEvents(changes, dbStore) {
   changes.forEach(function(change) {
