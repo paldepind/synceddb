@@ -21,15 +21,15 @@ handleCreateMsg = function(ws, msg) {
 
 sendChanges = function(ws, msg) {
   console.log('changes requested');
-  var changesToSend = changes.slice(msg.since + 1);
+  var changesToSend = changes.slice(msg.since + 1).filter(function(change) {
+    return msg.clientId !== change.clientId;
+  });
   ws.send(JSON.stringify({
     type: 'sending-changes',
     nrOfRecordsToSync: changesToSend.length,
   }));
   changesToSend.forEach(function(change) {
-    if (msg.clientId !== change.clientId) {
-      ws.send(JSON.stringify(change));
-    }
+    ws.send(JSON.stringify(change));
   });
 };
 
