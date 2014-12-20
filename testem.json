@@ -7,7 +7,7 @@
   "serve_files": [
     "./bower_components/sinonjs/sinon.js",
     "./bower_components/node-assert/assert.js",
-
+    "./bower_components/dffptch/dist/dffptch-global.js",
     "./bower_components/minivents-cuzzo/minivents.js",
     "synceddb.js",
     "test/*.test.js"
