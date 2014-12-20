@@ -424,6 +424,18 @@ describe('SyncedDB', function() {
         done();
       });
     });
+    it('can delete record by key', function(done) {
+      var key;
+      db.houses.put({street: 'Somewhere 7', built: 1982})
+      .then(function(insertKey) {
+        keys = insertKeys;
+        return db.houses.delete(insertKey);
+      }).then(function(house) {
+        return db.houses.get(key);
+      }).catch(function(err) {
+        done();
+      });
+    });
     describe('Index', function() {
       var db, put, animals;
       beforeEach(function() {

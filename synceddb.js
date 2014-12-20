@@ -211,6 +211,19 @@ SDBObjectStore.prototype.get = function(/* keys */) {
   });
 };
 
+SDBObjectStore.prototype.delete = function(/* keys */) {
+  var store = this;
+  var keys = toArray(arguments);
+  return doInStoreTx('readonly', store, function(tx, resolve, reject) {
+    var recordsLeftToDelete = new Countdown(keys.length);
+    recordsLeftToDelete.onZero = resolve;
+    keys.forEach(function(key) {
+      var req = store.IDBStore.delete(key);
+      req.onsuccess = function() { recordsLeftToDelete.add(-1); };
+    });
+  });
+};
+
 function doInStoreTx(mode, store, cb) {
   if (store.tx) { // We're in transaction
     return (new ImmediateThenable(function(resolve, reject) {
