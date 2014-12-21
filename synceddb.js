@@ -31,6 +31,10 @@ function copyRecord(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
+function partial() {
+  return Function.bind.apply(arguments[0], arguments);
+}
+
 var handleVersionChange = function(e) {
   // The database is being deleted or opened with
   // a newer version, possibly in another tab
@@ -485,7 +489,7 @@ function getClientId(db, ws) {
   }
 }
 
-function requestChangesToStore(db, ws, storeName, clientId) {
+function requestChangesToStore(db, ws, clientId, storeName) {
   db.sdbMetaData.get(storeName + 'Meta')
   .then(function(storeMeta) {
     ws.send({
@@ -543,27 +547,22 @@ var handleIncomingMessageByType = {
 };
 
 function handleIncomingMessage(db, ws, msg) {
+  console.log(toArray(arguments));
   handleIncomingMessageByType[msg.type](db, ws, msg);
 }
 
 function doPullFromRemote(ctx) {
   return new Promise(function(resolve, reject) {
-    ctx.db.recordsLeft.onZero = resolve.bind(null, ctx);
-    ctx.storeNames.map(function(storeName) {
-      requestChangesToStore(ctx.db, ctx.ws, storeName, ctx.clientId);
-    });
-    ctx.ws.on('message', function(msg) {
-      handleIncomingMessage(ctx.db, ctx.ws, msg);
-    });
+    ctx.db.recordsLeft.onZero = partial(resolve, ctx);
+    ctx.storeNames.map(partial(requestChangesToStore, ctx.db, ctx.ws, ctx.clientId));
+    ctx.ws.on('message', partial(handleIncomingMessage, ctx.db, ctx.ws));
   });
 }
 
 function doPushToRemote(ctx) {
   return new Promise(function(resolve, reject) {
     ctx.db.recordsToSync.onZero = resolve.bind(null, ctx);
-    ctx.ws.on('message', function(msg) {
-      handleIncomingMessage(ctx.db, ctx.ws, msg);
-    });
+    ctx.ws.on('message', partial(handleIncomingMessage, ctx.db, ctx.ws));
     findRecordsChangedSinceSync(ctx.db, ctx.storeNames)
     .then(function(results) {
       ctx.db.recordsToSync.add(results.length);
