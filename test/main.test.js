@@ -648,7 +648,7 @@ describe('SyncedDB', function() {
             nrOfRecordsToSync: 0
           })});
         };
-        db.pullFromRemote('roads')
+        db.sync('roads')
         .then(function() {
           done();
         });

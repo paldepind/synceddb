@@ -421,17 +421,19 @@ SDBDatabase.prototype.read = function() {
   return this.transaction(args.slice(0, -1), 'read', args.slice(-1)[0]);
 };
 
-var forEachRecordChangedSinceSync = function(db, storeNames, fn) {
-  db.transaction(storeNames, 'r', function() {
+var findRecordsChangedSinceSync = function(db, storeNames) {
+  var records = [];
+  return db.transaction(storeNames, 'r', function() {
     var stores = toArray(arguments);
     stores.forEach(function(store) {
-      var boundFn = fn.bind(null, store.name);
       store.changedSinceSync.get(1)
-      .then(function(records) {
-        records.forEach(boundFn);
+      .then(function(rs) {
+        rs.forEach(function(r) {
+          records.push({record: r, storeName: store.name});
+        });
       });
     });
-  });
+  }).then(function() { return records; });
 };
 
 var createMsg = function(storeName, clientId, record) {
@@ -562,9 +564,12 @@ function doPushToRemote(ctx) {
     ctx.ws.on('message', function(msg) {
       handleIncomingMessage(ctx.db, ctx.ws, msg);
     });
-    forEachRecordChangedSinceSync(ctx.db, ctx.storeNames, function(storeName, record) {
-      ctx.db.recordsToSync.add(1);
-      ctx.ws.send(createMsg(storeName, ctx.clientId, record));
+    findRecordsChangedSinceSync(ctx.db, ctx.storeNames)
+    .then(function(results) {
+      ctx.db.recordsToSync.add(results.length);
+      results.forEach(function(res) {
+        ctx.ws.send(createMsg(res.storeName, ctx.clientId, res.record));
+      });
     });
   });
 }
