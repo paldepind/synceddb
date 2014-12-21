@@ -122,8 +122,8 @@ WrappedSocket.prototype.send = function(msg) {
   }
 };
 
-WrappedSocket.prototype.close = function(code, reason) {
-  this.ws.close(code, reason);
+WrappedSocket.prototype.close = function() {
+  this.ws.close.apply(this.ws, arguments);
 };
 
 var SDBIndex = function(name, db, store) {
