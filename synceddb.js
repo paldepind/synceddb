@@ -419,7 +419,7 @@ SDBDatabase.prototype.catch = function(fn) {
 SDBDatabase.prototype.transaction = function(storeNames, mode, fn) {
   storeNames = [].concat(storeNames);
   mode = mode === 'r'    ? 'readonly'
-       : mode === 'read' ? 'readwrite'
+       : mode === 'read' ? 'readonly'
        : mode === 'rw'   ? 'readwrite'
                          : mode;
   var db = this;
@@ -439,7 +439,12 @@ SDBDatabase.prototype.transaction = function(storeNames, mode, fn) {
 
 SDBDatabase.prototype.read = function() {
   var args = toArray(arguments);
-  return this.transaction(args.slice(0, -1), 'read', args.slice(-1)[0]);
+  return this.transaction(args.slice(0, -1), 'r', args.slice(-1)[0]);
+};
+
+SDBDatabase.prototype.write = function() {
+  var args = toArray(arguments);
+  return this.transaction(args.slice(0, -1), 'rw', args.slice(-1)[0]);
 };
 
 var findRecordsChangedSinceSync = function(db, storeNames) {
@@ -484,7 +489,7 @@ var updateMsg = function(storeName, clientId, record) {
 };
 
 function handleRemoteOk(db, msg) {
-  return db.transaction(msg.storeName, 'rw', function(store) {
+  return db.write(msg.storeName, function(store) {
     store.get(msg.key).then(function(record) {
       record.changedSinceSync = 0;
       record.version = msg.newVersion;
@@ -512,7 +517,7 @@ function getClientId(db, ws) {
         return meta.clientId;
       } else {
         meta.clientId = Math.random().toString(36); // FIXME
-        return db.transaction('sdbMetaData', 'rw', function(sdbMetaData) {
+        return db.write('sdbMetaData', function(sdbMetaData) {
           putValToStore(sdbMetaData, meta, 'INTERNAL');
         }).then(function() {
           db.clientId = meta.clientId;
@@ -541,7 +546,7 @@ var handleIncomingMessageByType = {
   },
   'create': function(db, ws, msg) {
     msg.record.changedSinceSync = 0;
-    db.transaction([msg.storeName, 'sdbMetaData'], 'rw', function(store, metaStore) {
+    db.write(msg.storeName, 'sdbMetaData', function(store, metaStore) {
       addValToStore(store, msg.record, 'REMOTE')
       .then(function() {
         updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
@@ -551,7 +556,7 @@ var handleIncomingMessageByType = {
     });
   },
   'update': function(db, ws, msg) {
-    db.transaction([msg.storeName, 'sdbMetaData'], 'rw', function(store, metaStore) {
+    db.write(msg.storeName, 'sdbMetaData', function(store, metaStore) {
       store.get(msg.key)
       .then(function(record) {
         dffptch.patch(record, msg.diff);
@@ -564,7 +569,7 @@ var handleIncomingMessageByType = {
     });
   },
   'delete': function(db, ws, msg) {
-    db.transaction([msg.storeName, 'sdbMetaData'], 'rw', function(store, metaStore) {
+    db.write(msg.storeName, 'sdbMetaData', function(store, metaStore) {
       store.delete(msg.key)
       .then(function() {
         updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);

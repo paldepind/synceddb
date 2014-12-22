@@ -184,7 +184,7 @@ describe('SyncedDB', function() {
     it('can put and get', function(done) {
       var road = {length: 100, price: 1337};
       var house = {street: 'Somewhere', built: 1891};
-      db.read('roads', 'houses', function(roads, houses) {
+      db.write('roads', 'houses', function(roads, houses) {
         roads.put(road);
         houses.put(house);
       }).then(function() {
@@ -201,7 +201,7 @@ describe('SyncedDB', function() {
       var keys;
       var road1 = {length: 100, price: 1337};
       var road2 = {length: 200, price: 2030};
-      db.read('roads', function(roads) {
+      db.write('roads', function(roads) {
         roads.put(road1, road2);
       }).then(function() {
         return db.roads.get(road1.key);
@@ -215,7 +215,7 @@ describe('SyncedDB', function() {
     });
     it('can get several records at once', function(done) {
       var foundRoads;
-      db.read('roads', function(roads) {
+      db.write('roads', function(roads) {
         var road1 = {length: 100, price: 1337};
         var road2 = {length: 200, price: 2030};
         roads.put(road1, road2)
@@ -234,7 +234,7 @@ describe('SyncedDB', function() {
     it('support promise chaining with simple values', function(done) {
       var key;
       var road = {length: 100, price: 1337};
-      db.read('roads', function(roads) {
+      db.write('roads', function(roads) {
         roads.put(road)
         .then(function() {
           return road;
@@ -502,7 +502,7 @@ describe('SyncedDB', function() {
     });
     it('emits event when creating object inside transactions', function(done) {
       db = syncedDB.open('mydb', 1, stores);
-      db.read('roads', function(roads) {
+      db.write('roads', function(roads) {
         roads.put({length: 100, price: 1337});
       });
       db.roads.on('add', function(addedId) {
