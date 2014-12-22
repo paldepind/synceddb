@@ -276,6 +276,9 @@ function emitChangeEvents(changes, dbStore) {
     dbStore.emit(change.type, {
       record: change.record
     });
+    if (dbStore.db.continuousWs) {
+      dbStore.db.continuousWs.send(createMsg(dbStore.name, dbStore.db.clientId, change.record));
+    }
   });
 }
 
@@ -454,7 +457,7 @@ function handleRemoteOk(db, msg) {
     store.get(msg.key).then(function(record) {
       record.changedSinceSync = 0;
       record.version = msg.newVersion;
-      putValToStore(store, record);
+      putValToStore(store, record, true);
     });
   });
 }
@@ -547,7 +550,6 @@ var handleIncomingMessageByType = {
 };
 
 function handleIncomingMessage(db, ws, msg) {
-  console.log(toArray(arguments));
   handleIncomingMessageByType[msg.type](db, ws, msg);
 }
 
@@ -555,14 +557,12 @@ function doPullFromRemote(ctx) {
   return new Promise(function(resolve, reject) {
     ctx.db.recordsLeft.onZero = partial(resolve, ctx);
     ctx.storeNames.map(partial(requestChangesToStore, ctx.db, ctx.ws, ctx.clientId));
-    ctx.ws.on('message', partial(handleIncomingMessage, ctx.db, ctx.ws));
   });
 }
 
 function doPushToRemote(ctx) {
   return new Promise(function(resolve, reject) {
     ctx.db.recordsToSync.onZero = resolve.bind(null, ctx);
-    ctx.ws.on('message', partial(handleIncomingMessage, ctx.db, ctx.ws));
     findRecordsChangedSinceSync(ctx.db, ctx.storeNames)
     .then(function(results) {
       ctx.db.recordsToSync.add(results.length);
@@ -579,6 +579,7 @@ function getSyncContext(db, storeNamesArgs) {
   .then(function(clientId) {
     return new Promise(function(resolve, reject) {
       var ws = new WrappedSocket('ws://' + db.remote);
+      ws.on('message', partial(handleIncomingMessage, db, ws));
       ws.on('open', function() {
         resolve({db: db, storeNames: storeNames, clientId: clientId, ws: ws});
       });
@@ -600,11 +601,21 @@ SDBDatabase.prototype.pullFromRemote = function(/* storeNames */) {
   .then(closeWsInCtx);
 };
 
-SDBDatabase.prototype.sync = function() {
-  return getSyncContext(this, arguments)
+SDBDatabase.prototype.sync = function(/* storeNames */) {
+  return getSyncContext(db, arguments)
   .then(doPullFromRemote)
   .then(doPushToRemote)
   .then(closeWsInCtx);
+};
+
+SDBDatabase.prototype.syncContinuously = function(/* storeNames */) {
+  var db = this;
+  return getSyncContext(db, arguments)
+  .then(function(ctx) {
+    db.continuousWs = ctx.ws;
+    return ctx;
+  }).then(doPullFromRemote)
+  .then(doPushToRemote);
 };
 
 exports.open = function(name, version, stores, migrations) {

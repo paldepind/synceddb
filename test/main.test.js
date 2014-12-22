@@ -865,5 +865,33 @@ describe('SyncedDB', function() {
         });
       });
     });
-   });
+    describe('continuous sync', function() {
+      it('sends added records when syncing', function(done) {
+        onSend = function(msg) {
+          var data = JSON.parse(msg);
+          if (data.type === 'get-changes') {
+            ws.onmessage({data: JSON.stringify({
+              type: 'sending-changes',
+              nrOfRecordsToSync: 0
+            })});
+          } else {
+            ws.onmessage({data: JSON.stringify({
+              type: 'ok',
+              storeName: 'animals',
+              key: data.record.key,
+            })});
+          }
+        };
+        db.syncContinuously('animals').then(function() {
+          db.animals.put({color: 'grey', name: 'Mister'})
+          .then(function() {
+            var secondSend = JSON.parse(sendSpy.getCall(1).args[0]);
+            assert.equal(secondSend.type, 'create');
+            assert.equal(secondSend.record.color, 'grey');
+            done();
+          });
+        });
+      });
+    });
+  });
 });
