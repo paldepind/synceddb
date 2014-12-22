@@ -108,6 +108,7 @@ function WrappedSocket(url, protocol) {
   };
   ws.onmessage = function(msg) {
     console.log('Message recieved');
+    console.log(msg.data);
     var data;
     if (typeof msg.data === 'string') {
       data = JSON.parse(msg.data);
@@ -265,7 +266,7 @@ SDBObjectStore.prototype.put = function(/* recs */) {
         record.changedSinceSync = 1;
       }
     });
-    putValsToStore(store, recs).then(function(ks) {
+    putValsToStore(store, recs, 'LOCAL').then(function(ks) {
       resolve(ks);
     });
   });
@@ -274,15 +275,16 @@ SDBObjectStore.prototype.put = function(/* recs */) {
 function emitChangeEvents(changes, dbStore) {
   changes.forEach(function(change) {
     dbStore.emit(change.type, {
-      record: change.record
+      record: change.record,
+      origin: change.origin
     });
-    if (dbStore.db.continuousWs) {
+    if (dbStore.db.continuousWs && change.origin !== 'REMOTE') {
       dbStore.db.continuousWs.send(createMsg(dbStore.name, dbStore.db.clientId, change.record));
     }
   });
 }
 
-function insertValInStore(method, store, val, silent) {
+function insertValInStore(method, store, val, origin) {
   var IDBStore = store.IDBStore;
   return new ImmediateThenable(function(resolve, reject) {
     var isNew = !('key' in val);
@@ -290,7 +292,8 @@ function insertValInStore(method, store, val, silent) {
     var req = IDBStore[method](val);
     req.onsuccess = function() {
       var type = (method === 'add' || isNew) ? 'add' : 'update';
-      if (!silent) store.changedRecords.push({type: type, record: val});
+      if (origin !== 'INTERNAL')
+        store.changedRecords.push({type: type, origin: origin, record: val});
       resolve(req.result);
     };
   });
@@ -299,11 +302,11 @@ function insertValInStore(method, store, val, silent) {
 var putValToStore = insertValInStore.bind(null, 'put');
 var addValToStore = insertValInStore.bind(null, 'add');
 
-var insertValsInStore = function(method, store, vals) {
+var insertValsInStore = function(method, store, vals, origin) {
   return new ImmediateThenable(function(resolve, reject) {
     var keys = [];
     vals.forEach(function(val) {
-      insertValInStore(method, store, val).then(function(key) {
+      insertValInStore(method, store, val, origin).then(function(key) {
         keys.push(key);
         if (keys.length === vals.length)
           resolve(vals.length == 1 ? keys[0] : keys);
@@ -457,7 +460,7 @@ function handleRemoteOk(db, msg) {
     store.get(msg.key).then(function(record) {
       record.changedSinceSync = 0;
       record.version = msg.newVersion;
-      putValToStore(store, record, true);
+      putValToStore(store, record, 'REMOTE');
     });
   });
 }
@@ -466,7 +469,7 @@ function updateStoreSyncedTo(metaStore, storeName, time) {
   metaStore.get(storeName + 'Meta')
   .then(function(storeMeta) {
     storeMeta.syncedTo = time;
-    putValToStore(metaStore, storeMeta, true);
+    putValToStore(metaStore, storeMeta, 'INTERNAL');
   });
 }
 
@@ -482,7 +485,7 @@ function getClientId(db, ws) {
       } else {
         meta.clientId = Math.random().toString(36); // FIXME
         return db.transaction('sdbMetaData', 'rw', function(sdbMetaData) {
-          putValToStore(sdbMetaData, meta, true);
+          putValToStore(sdbMetaData, meta, 'INTERNAL');
         }).then(function() {
           db.clientId = meta.clientId;
           return meta.clientId;
@@ -511,7 +514,7 @@ var handleIncomingMessageByType = {
   'create': function(db, ws, msg) {
     msg.record.changedSinceSync = 0;
     db.transaction([msg.storeName, 'sdbMetaData'], 'rw', function(store, metaStore) {
-      addValToStore(store, msg.record)
+      addValToStore(store, msg.record, 'REMOTE')
       .then(function() {
         updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
       });
@@ -602,7 +605,7 @@ SDBDatabase.prototype.pullFromRemote = function(/* storeNames */) {
 };
 
 SDBDatabase.prototype.sync = function(/* storeNames */) {
-  return getSyncContext(db, arguments)
+  return getSyncContext(this, arguments)
   .then(doPullFromRemote)
   .then(doPushToRemote)
   .then(closeWsInCtx);
