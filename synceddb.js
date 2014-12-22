@@ -254,7 +254,8 @@ SDBObjectStore.prototype.put = function(/* recs */) {
   var recs = toArray(arguments);
   var store = this;
   return doInStoreTx('readwrite', store, function(tx, resolve, reject) {
-    var keys = [];
+    var recordsLeftToPut = new Countdown(recs.length);
+    recordsLeftToPut.onZero = resolve;
     recs.forEach(function(record) {
       if (record.changedSinceSync !== undefined &&
           !record.remoteOriginal) {
@@ -263,28 +264,15 @@ SDBObjectStore.prototype.put = function(/* recs */) {
           if (req.result.changedSinceSync === 0) {
             record.version = req.result.version;
             record.remoteOriginal = copyRecord(req.result);
-            putValToStore(store, record, 'LOCAL').then(function(k) {
-              keys.push(k);
-              if (keys.length === recs.length) {
-                resolve(recs.length == 1 ? keys[0] : keys);
-              }
-            });
-          } else {
-            putValToStore(store, record, 'LOCAL').then(function(k) {
-              keys.push(k);
-              if (keys.length === recs.length) {
-                resolve(recs.length == 1 ? keys[0] : keys);
-              }
-            });
           }
+          putValToStore(store, record, 'LOCAL').then(function(k) {
+            recordsLeftToPut.add(-1);
+          });
         };
       } else { // Brand new record
         record.changedSinceSync = 1;
         putValToStore(store, record, 'LOCAL').then(function(k) {
-          keys.push(k);
-          if (keys.length === recs.length) {
-            resolve(recs.length == 1 ? keys[0] : keys);
-          }
+          recordsLeftToPut.add(-1);
         });
       }
     });

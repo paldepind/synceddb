@@ -182,17 +182,16 @@ describe('SyncedDB', function() {
       });
     });
     it('can put and get', function(done) {
-      var roadKey, houseKey;
+      var road = {length: 100, price: 1337};
+      var house = {street: 'Somewhere', built: 1891};
       db.read('roads', 'houses', function(roads, houses) {
-        roads.put({length: 100, price: 1337})
-        .then(function(key) { roadKey = key; });
-        houses.put({street: 'Somewhere', built: 1891})
-        .then(function(key) { houseKey = key; });
+        roads.put(road);
+        houses.put(house);
       }).then(function() {
-        return db.houses.get(houseKey);
+        return db.houses.get(house.key);
       }).then(function(somewhere) {
         assert.equal(somewhere.built, 1891);
-        return db.roads.get(roadKey);
+        return db.roads.get(road.key);
       }).then(function(road) {
         assert(road.length === 100);
         done();
@@ -200,27 +199,28 @@ describe('SyncedDB', function() {
     });
     it('can put several records at once', function(done) {
       var keys;
+      var road1 = {length: 100, price: 1337};
+      var road2 = {length: 200, price: 2030};
       db.read('roads', function(roads) {
-        roads.put({length: 100, price: 1337},
-                  {length: 200, price: 2030})
-        .then(function(putKeys) { keys = putKeys; });
+        roads.put(road1, road2);
       }).then(function() {
-        return db.roads.get(keys[0]);
-      }).then(function(road1) {
-        assert(road1.length === 100);
-        return db.roads.get(keys[1]);
-      }).then(function(road2) {
-        assert(road2.length === 200);
+        return db.roads.get(road1.key);
+      }).then(function(r1) {
+        assert(r1.length === 100);
+        return db.roads.get(road2.key);
+      }).then(function(r2) {
+        assert(r2.length === 200);
         done();
       });
     });
     it('can get several records at once', function(done) {
       var foundRoads;
       db.read('roads', function(roads) {
-        roads.put({length: 100, price: 1337},
-                  {length: 200, price: 2030})
-        .then(function(keys) {
-          roads.get(keys[0], keys[1])
+        var road1 = {length: 100, price: 1337};
+        var road2 = {length: 200, price: 2030};
+        roads.put(road1, road2)
+        .then(function() {
+          roads.get(road1.key, road2.key)
           .then(function(found) {
             foundRoads = found;
           });
@@ -231,27 +231,15 @@ describe('SyncedDB', function() {
         done();
       });
     });
-    it('passes id when putting', function(done) {
-      var called = false;
-      db.read('roads', function(roads) {
-        roads.put({length: 100, price: 1337, key: 1})
-        .then(function(id) {
-          assert(id == 1);
-          called = true;
-        });
-      }).then(function() {
-        assert(called);
-        done();
-      });
-    });
     it('support promise chaining with simple values', function(done) {
       var key;
+      var road = {length: 100, price: 1337};
       db.read('roads', function(roads) {
-        roads.put({length: 100, price: 1337})
-        .then(function(k) {
-          return k;
-        }).then(function(k) {
-          key = k;
+        roads.put(road)
+        .then(function() {
+          return road;
+        }).then(function(road) {
+          key = road.key;
         });
       }).then(function() {
         assert(key);
@@ -259,10 +247,11 @@ describe('SyncedDB', function() {
       });
     });
     it('is possible to put and then get in promise chain', function(done) {
+      var road = {length: 100, price: 1337};
       db.transaction('roads', 'rw', function(roads) {
-        roads.put({length: 100, price: 1337, key: 1})
-        .then(function(roadKey) {
-          return roads.get(roadKey);
+        roads.put(road)
+        .then(function() {
+          return roads.get(road.key);
         }).then(function(road) {
           assert(road.price === 1337);
           done();
@@ -270,19 +259,19 @@ describe('SyncedDB', function() {
       });
     });
     it('is possible to get and then put', function(done) {
-      db.roads.put({length: 100, price: 1337})
-      .then(function(putKey) {
+      var road = {length: 100, price: 1337};
+      db.roads.put(road)
+      .then(function() {
         db.transaction('roads', 'rw', function(roads) {
-          var road = {};
-          roads.get(putKey)
+          roads.get(road.key)
           .then(function(r) {
             r.length = 110;
             roads.put(r);
           });
         }).then(function() {
-          return db.roads.get(putKey);
-        }).then(function(road) {
-          assert(road.length === 110);
+          return db.roads.get(road.key);
+        }).then(function(r) {
+          assert(r.length === 110);
           done();
         });
       });
@@ -290,7 +279,8 @@ describe('SyncedDB', function() {
     describe('Indexes', function() {
       it('can get records by indexes', function(done) {
         var road;
-        db.roads.put({length: 100, price: 1337})
+        var road = {length: 100, price: 1337};
+        db.roads.put(road)
         .then(function() {
           return db.transaction('roads', 'r', function(roads) {
             roads.byLength.get(100)
@@ -305,7 +295,8 @@ describe('SyncedDB', function() {
       });
       it('can get by indexes and continue in transaction', function(done) {
         var road1, road2;
-        db.roads.put({length: 100, price: 1337})
+        var road = {length: 100, price: 1337};
+        db.roads.put(road)
         .then(function() {
           return db.transaction('roads', 'r', function(roads) {
             roads.byLength.get(100)
@@ -395,29 +386,29 @@ describe('SyncedDB', function() {
       }
     });
     it('can put records with key', function(done) {
-      db.houses.put({street: 'Somewhere 8', built: 1993})
-      .then(function(key) {
-        return db.houses.get(key);
+      var house = {street: 'Somewhere 8', built: 1993};
+      db.houses.put(house)
+      .then(function() {
+        return db.houses.get(house.key);
       }).then(function(house) {
         assert(house.built === 1993);
         done();
       });
     });
     it('can put several records at once', function(done) {
-      var houses = db.houses;
       var keys;
-      houses.put({street: 'Somewhere 7', built: 1982},
-                 {street: 'Somewhere 8', built: 1993},
-                 {street: 'Somewhere 9', built: 2001})
-      .then(function(putKeys) {
-        keys = putKeys;
-        return houses.get(keys[0]);
+      var houses = [{street: 'Somewhere 7', built: 1982},
+                    {street: 'Somewhere 8', built: 1993},
+                    {street: 'Somewhere 9', built: 2001}];
+      db.houses.put(houses[0], houses[1], houses[2])
+      .then(function() {
+        return db.houses.get(houses[0].key);
       }).then(function(house) {
         assert(house.built === 1982);
-        return houses.get(keys[1]);
+        return db.houses.get(houses[1].key);
       }).then(function(house) {
         assert(house.built === 1993);
-        return houses.get(keys[2]);
+        return db.houses.get(houses[2].key);
       }).then(function(house) {
         assert(house.built === 2001);
         done();
@@ -786,8 +777,8 @@ describe('SyncedDB', function() {
           }
         };
         db.roads.put(road)
-        .then(function(key) {
-          roadKey = key;
+        .then(function() {
+          roadKey = road.key;
           return db.pushToRemote();
         }).then(function() {
           db.pullFromRemote();
@@ -826,7 +817,7 @@ describe('SyncedDB', function() {
         };
         db.roads.put(road)
         .then(function(key) {
-          roadKey = key;
+          roadKey = road.key;
           return db.pushToRemote();
         }).then(function() {
           return db.pullFromRemote();
