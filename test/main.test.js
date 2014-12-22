@@ -277,11 +277,10 @@ describe('SyncedDB', function() {
           roads.get(putKey)
           .then(function(r) {
             r.length = 110;
-            r.key = 1;
             roads.put(r);
           });
         }).then(function() {
-          return db.roads.get(1);
+          return db.roads.get(putKey);
         }).then(function(road) {
           assert(road.length === 110);
           done();
@@ -636,6 +635,34 @@ describe('SyncedDB', function() {
           done();
         });
       });
+      it('sends updated records', function(done) {
+        var road = {length: 100, price: 1337};
+        var roadKey;
+        onSend = function(raw) {
+          var msg = JSON.parse(raw);
+          ws.onmessage({data: JSON.stringify({
+            type: 'ok',
+            storeName: 'roads',
+            key: msg.key || msg.record.key,
+            newVersion: (msg.version + 1) || 0,
+          })});
+        };
+        db.roads.put(road)
+        .then(function(key) {
+          roadKey = key;
+          return db.pushToRemote();
+        }).then(function() {
+          road.length = 110;
+          return db.roads.put(road);
+        }).then(function() {
+          return db.pushToRemote();
+        }).then(function() {
+          var secondSend = JSON.parse(sendSpy.getCall(1).args[0]);
+          assert.equal(secondSend.type, 'update');
+          assert.equal(secondSend.diff.m[2], 110);
+          done();
+        });
+      });
     });
     describe('from server', function() {
       it('finishes sync if nr of records to sync is zero', function(done) {
@@ -731,7 +758,7 @@ describe('SyncedDB', function() {
           done();
         });
       });
-      it('handles changed documents', function(done) {
+      it('handles updated documents', function(done) {
         var road = {length: 100, price: 1337};
         var roadKey;
         onSend = function(raw) {

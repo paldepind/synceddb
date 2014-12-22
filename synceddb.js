@@ -108,7 +108,6 @@ function WrappedSocket(url, protocol) {
   };
   ws.onmessage = function(msg) {
     console.log('Message recieved');
-    console.log(msg.data);
     var data;
     if (typeof msg.data === 'string') {
       data = JSON.parse(msg.data);
@@ -255,19 +254,39 @@ SDBObjectStore.prototype.put = function(/* recs */) {
   var recs = toArray(arguments);
   var store = this;
   return doInStoreTx('readwrite', store, function(tx, resolve, reject) {
+    var keys = [];
     recs.forEach(function(record) {
-      if (record.changedSinceSync === 0) {
+      if (record.changedSinceSync !== undefined &&
+          !record.remoteOriginal) {
         var req = store.IDBStore.get(record.key);
         req.onsuccess = function() {
-          record.remoteOriginal = copyRecord(req.result);
-          record.changedSinceSync = 1;
+          if (req.result.changedSinceSync === 0) {
+            record.version = req.result.version;
+            record.remoteOriginal = copyRecord(req.result);
+            putValToStore(store, record, 'LOCAL').then(function(k) {
+              keys.push(k);
+              if (keys.length === recs.length) {
+                resolve(recs.length == 1 ? keys[0] : keys);
+              }
+            });
+          } else {
+            putValToStore(store, record, 'LOCAL').then(function(k) {
+              keys.push(k);
+              if (keys.length === recs.length) {
+                resolve(recs.length == 1 ? keys[0] : keys);
+              }
+            });
+          }
         };
-      } else {
+      } else { // Brand new record
         record.changedSinceSync = 1;
+        putValToStore(store, record, 'LOCAL').then(function(k) {
+          keys.push(k);
+          if (keys.length === recs.length) {
+            resolve(recs.length == 1 ? keys[0] : keys);
+          }
+        });
       }
-    });
-    putValsToStore(store, recs, 'LOCAL').then(function(ks) {
-      resolve(ks);
     });
   });
 };
@@ -279,7 +298,11 @@ function emitChangeEvents(changes, dbStore) {
       origin: change.origin
     });
     if (dbStore.db.continuousWs && change.origin !== 'REMOTE') {
-      dbStore.db.continuousWs.send(createMsg(dbStore.name, dbStore.db.clientId, change.record));
+      if (change.record.remoteOriginal) {
+        dbStore.db.continuousWs.send(updateMsg(dbStore.name, dbStore.db.clientId, change.record));
+      } else {
+        dbStore.db.continuousWs.send(createMsg(dbStore.name, dbStore.db.clientId, change.record));
+      }
     }
   });
 }
@@ -455,6 +478,23 @@ var createMsg = function(storeName, clientId, record) {
   });
 };
 
+var updateMsg = function(storeName, clientId, record) {
+  var remoteOriginal = record.remoteOriginal;
+  delete record.remoteOriginal; // Noise free diff
+  remoteOriginal.version = record.version;
+  remoteOriginal.changedSinceSync = 1;
+  var diff = dffptch.diff(remoteOriginal, record);
+  record.remoteOriginal = remoteOriginal;
+  return JSON.stringify({
+    type: 'update',
+    storeName: storeName,
+    clientId: clientId,
+    version: record.version,
+    diff: diff,
+    key: record.key,
+  });
+};
+
 function handleRemoteOk(db, msg) {
   return db.transaction(msg.storeName, 'rw', function(store) {
     store.get(msg.key).then(function(record) {
@@ -570,7 +610,11 @@ function doPushToRemote(ctx) {
     .then(function(results) {
       ctx.db.recordsToSync.add(results.length);
       results.forEach(function(res) {
-        ctx.ws.send(createMsg(res.storeName, ctx.clientId, res.record));
+        if (res.record.remoteOriginal) {
+          ctx.ws.send(updateMsg(res.storeName, ctx.clientId, res.record));
+        } else {
+          ctx.ws.send(createMsg(res.storeName, ctx.clientId, res.record));
+        }
       });
     });
   });
