@@ -53,13 +53,14 @@ Countdown.prototype.add = function(n) {
   if (this.val === 0) this.onZero();
 };
 
-function ImmediateThenable(fn) {
+// Super retarded promise implementation
+function SyncPromise(fn) {
   this._thenCbs = [];
   this._catchCbs = [];
   fn(this._resolve.bind(this), this._reject.bind(this));
 }
 
-ImmediateThenable.prototype._resolve = function(val) {
+SyncPromise.prototype._resolve = function(val) {
   if (val && typeof val.then == 'function') {
     val.then(this._resolve.bind(this));
   } else {
@@ -69,23 +70,43 @@ ImmediateThenable.prototype._resolve = function(val) {
   }
 };
 
-ImmediateThenable.prototype._reject = function(val) {
+SyncPromise.prototype._reject = function(val) {
   this._catchCbs.forEach(function(fn) {
     fn(val);
   });
 };
 
-ImmediateThenable.prototype.then = function(onFulfilled) {
+SyncPromise.prototype.then = function(onFulfilled) {
   var self = this;
-  return (new ImmediateThenable(function(resolve, reject) {
+  return (new SyncPromise(function(resolve, reject) {
     self._thenCbs.push(function(result) {
-      resolve(onFulfilled(result));
+      if (typeof onFulfilled === 'function') {
+        resolve(onFulfilled(result));
+      } else {
+        resolve(result);
+      }
+    });
+    self._catchCbs.push(function(reason) {
+      reject(reason);
     });
   }));
 };
 
-ImmediateThenable.prototype.catch = function(cb) {
-  this.catchCbs.push(cb);
+SyncPromise.prototype.catch = function(cb) {
+  this._catchCbs.push(cb);
+};
+
+SyncPromise.all = function(promises) {
+  return new SyncPromise(function(resolve, reject) {
+    var results = [], resolved = 0;
+    promises.forEach(function(promise, i) {
+      promise.then(function(res) {
+        results[i] = res;
+        if (++resolved === promises.length) resolve(results);
+      });
+      promise.catch(reject);
+    });
+  });
 };
 
 function WrappedSocket(url, protocol) {
@@ -201,21 +222,28 @@ var SDBObjectStore = function(db, name, indexes, tx) {
   if (tx) setStoreTx(store, tx);
 };
 
+function doGet(IDBStore, key) {
+  return new SyncPromise(function(resolve, reject) {
+    var req = IDBStore.get(key);
+    req.onsuccess = function() {
+      req.result !== undefined ? resolve(req.result)
+                               : reject({type: 'KeyNotFoundError',
+                                         key: key});
+    };
+  });
+}
+
 SDBObjectStore.prototype.get = function(/* keys */) {
   var store = this;
   var keys = toArray(arguments);
   return doInStoreTx('readonly', store, function(tx, resolve, reject) {
-    var records = [];
-    keys.forEach(function(key) {
-      var req = store.IDBStore.get(key);
-      req.onsuccess = function() {
-        req.result !== undefined ? records.push(req.result)
-                                 : reject({type: 'KeyNotFoundError',
-                                           key: key});
-        if (keys.length === records.length)
-          resolve(keys.length == 1 ? records[0] : records);
-      };
-    });
+    var gets = keys.map(partial(doGet, store.IDBStore));
+    SyncPromise.all(gets)
+    .then(function(records) {
+      if (keys.length === records.length)
+        resolve(keys.length == 1 ? records[0] : records);
+    })
+    .catch(function(err) { reject(err); });
   });
 };
 
@@ -234,7 +262,7 @@ SDBObjectStore.prototype.delete = function(/* keys */) {
 
 function doInStoreTx(mode, store, cb) {
   if (store.tx) { // We're in transaction
-    return (new ImmediateThenable(function(resolve, reject) {
+    return (new SyncPromise(function(resolve, reject) {
       cb(store.tx, resolve, reject);
     }));
   } else {
@@ -297,7 +325,7 @@ function emitChangeEvents(changes, dbStore) {
 
 function insertValInStore(method, store, val, origin) {
   var IDBStore = store.IDBStore;
-  return new ImmediateThenable(function(resolve, reject) {
+  return new SyncPromise(function(resolve, reject) {
     var req = IDBStore[method](val);
     req.onsuccess = function() {
       var type = method === 'add' ? 'add' : 'update';
@@ -312,7 +340,7 @@ var putValToStore = insertValInStore.bind(null, 'put');
 var addValToStore = insertValInStore.bind(null, 'add');
 
 var insertValsInStore = function(method, store, vals, origin) {
-  return new ImmediateThenable(function(resolve, reject) {
+  return new SyncPromise(function(resolve, reject) {
     var keys = [];
     vals.forEach(function(val) {
       insertValInStore(method, store, val, origin).then(function(key) {
