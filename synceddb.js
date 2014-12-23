@@ -493,7 +493,7 @@ function handleRemoteOk(db, msg) {
     store.get(msg.key).then(function(record) {
       record.changedSinceSync = 0;
       record.version = msg.newVersion;
-      putValToStore(store, record, 'REMOTE');
+      putValToStore(store, record, 'INTERNAL');
     });
   });
 }
@@ -560,7 +560,7 @@ var handleIncomingMessageByType = {
       store.get(msg.key)
       .then(function(record) {
         dffptch.patch(record, msg.diff);
-        return store.put(record);
+        return putValToStore(store, record, 'REMOTE');
       }).then(function() {
         updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
       });
