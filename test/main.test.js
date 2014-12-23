@@ -910,6 +910,83 @@ describe('SyncedDB', function() {
           });
         });
       });
+      it('sends updated records when syncing', function(done) {
+        onSend = function(data) {
+          var msg = JSON.parse(data);
+          console.log('msg');
+          console.log(msg);
+          if (msg.type === 'get-changes') {
+            ws.onmessage({data: JSON.stringify({
+              type: 'sending-changes',
+              nrOfRecordsToSync: 0
+            })});
+          } else {
+            ws.onmessage({data: JSON.stringify({
+              type: 'ok',
+              storeName: 'animals',
+              key: msg.key || msg.record.key,
+              newVersion: (msg.version + 1) || 0,
+            })});
+          }
+        };
+        db.syncContinuously('animals').then(function() {
+          var cat = {color: 'grey', name: 'Mister'};
+          db.animals.put(cat)
+          .then(function() {
+            cat.color = 'white';
+            return db.animals.put(cat);
+          }).then(function() {
+            var secondSend = JSON.parse(sendSpy.getCall(1).args[0]);
+            assert.equal(secondSend.type, 'create');
+            assert.equal(secondSend.record.color, 'grey');
+            var thirdSend = JSON.parse(sendSpy.getCall(2).args[0]);
+            assert.equal(thirdSend.type, 'update');
+            assert.equal(thirdSend.diff.m[1], 'white');
+            done();
+          });
+        });
+      });
+      it('sends multiple updates continuously', function(done) {
+        onSend = function(data) {
+          var msg = JSON.parse(data);
+          console.log('msg');
+          console.log(msg);
+          if (msg.type === 'get-changes') {
+            ws.onmessage({data: JSON.stringify({
+              type: 'sending-changes',
+              nrOfRecordsToSync: 0
+            })});
+          } else {
+            ws.onmessage({data: JSON.stringify({
+              type: 'ok',
+              storeName: 'animals',
+              key: msg.key || msg.record.key,
+              newVersion: (msg.version + 1) || 0,
+            })});
+          }
+        };
+        db.syncContinuously('animals').then(function() {
+          var cat = {color: 'grey', name: 'Mister'};
+          db.animals.put(cat)
+          .then(function() {
+            cat.color = 'white';
+            return db.animals.put(cat);
+          }).then(function() {
+            cat.color = 'grey';
+            return db.animals.put(cat);
+          }).then(function() {
+            var secondSend = JSON.parse(sendSpy.getCall(1).args[0]);
+            assert.equal(secondSend.type, 'create');
+            assert.equal(secondSend.record.color, 'grey');
+            var thirdSend = JSON.parse(sendSpy.getCall(2).args[0]);
+            assert.equal(thirdSend.type, 'update');
+            assert.equal(thirdSend.diff.m[1], 'white');
+            var fourthSend = JSON.parse(sendSpy.getCall(3).args[0]);
+            assert.equal(fourthSend.diff.m[1], 'grey');
+            done();
+          });
+        });
+      });
     });
   });
 });

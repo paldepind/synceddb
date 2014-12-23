@@ -257,21 +257,21 @@ SDBObjectStore.prototype.put = function(/* recs */) {
     var recordsLeftToPut = new Countdown(recs.length);
     recordsLeftToPut.onZero = resolve;
     recs.forEach(function(record) {
-      if (record.changedSinceSync !== undefined &&
-          !record.remoteOriginal) {
+      record.changedSinceSync = 1;
+      if (record.key) {
         var req = store.IDBStore.get(record.key);
         req.onsuccess = function() {
+          record.version = req.result.version;
           if (req.result.changedSinceSync === 0) {
-            record.version = req.result.version;
             record.remoteOriginal = copyRecord(req.result);
           }
           putValToStore(store, record, 'LOCAL').then(function(k) {
             recordsLeftToPut.add(-1);
           });
         };
-      } else { // Brand new record
-        record.changedSinceSync = 1;
-        putValToStore(store, record, 'LOCAL').then(function(k) {
+      } else {
+        record.key = Math.random().toString(36);
+        addValToStore(store, record, 'LOCAL').then(function(k) {
           recordsLeftToPut.add(-1);
         });
       }
@@ -298,11 +298,9 @@ function emitChangeEvents(changes, dbStore) {
 function insertValInStore(method, store, val, origin) {
   var IDBStore = store.IDBStore;
   return new ImmediateThenable(function(resolve, reject) {
-    var isNew = !('key' in val);
-    if (isNew) val.key = Math.random().toString(36);
     var req = IDBStore[method](val);
     req.onsuccess = function() {
-      var type = (method === 'add' || isNew) ? 'add' : 'update';
+      var type = method === 'add' ? 'add' : 'update';
       if (origin !== 'INTERNAL')
         store.changedRecords.push({type: type, origin: origin, record: val});
       resolve(req.result);
@@ -364,7 +362,7 @@ var handleMigrations = function(version, storeDeclaration, migrationHooks, e) {
       store = req.transaction.objectStore(storeName);
     } else {
       store = db.createObjectStore(storeName, {keyPath: 'key'});
-      metaStore.put({ key: storeName + 'Meta', syncedTo: -1});
+      metaStore.put({key: storeName + 'Meta', syncedTo: -1});
     }
     indexes.forEach(function(index) {
       if (!store.indexNames.contains(index[0]))
@@ -493,6 +491,7 @@ function handleRemoteOk(db, msg) {
     store.get(msg.key).then(function(record) {
       record.changedSinceSync = 0;
       record.version = msg.newVersion;
+      delete record.remoteOriginal;
       putValToStore(store, record, 'INTERNAL');
     });
   });
