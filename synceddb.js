@@ -135,6 +135,7 @@ function WrappedSocket(url, protocol) {
     } else {
       data = msg.data;
     }
+    console.log(data);
     wws.emit('message', data);
   };
 }
@@ -199,8 +200,10 @@ SDBIndex.prototype.inRange = function(/* ranges */) {
 };
 
 function setStoreTx(store, tx) {
+  store.tx = tx;
   store.IDBStore = tx.objectStore(store.name);
   tx.addEventListener('complete', function() {
+    store.tx = undefined;
     emitChangeEvents(store.changedRecords, store.db.stores[store.name]);
     store.changedRecords.length = 0;
   });
@@ -211,7 +214,6 @@ var SDBObjectStore = function(db, name, indexes, tx) {
   store.name = name;
   store.db = db;
   store.indexes = indexes;
-  store.tx = tx;
   store.changedRecords = [];
   Events(store);
   indexes.forEach(function(i) {
@@ -220,13 +222,16 @@ var SDBObjectStore = function(db, name, indexes, tx) {
   if (tx) setStoreTx(store, tx);
 };
 
-function doGet(IDBStore, key) {
+function doGet(IDBStore, key, getDeleted) {
   return new SyncPromise(function(resolve, reject) {
     var req = IDBStore.get(key);
     req.onsuccess = function() {
-      req.result !== undefined ? resolve(req.result)
-                               : reject({type: 'KeyNotFoundError',
-                                         key: key});
+      if (req.result !== undefined &&
+          (!req.result.deleted || getDeleted)) {
+        resolve(req.result);
+      } else {
+        reject({type: 'KeyNotFoundError', key: key});
+      }
     };
   });
 }
@@ -252,8 +257,9 @@ SDBObjectStore.prototype.delete = function(/* keys */) {
     var recordsLeftToDelete = new Countdown(keys.length);
     recordsLeftToDelete.onZero = resolve;
     keys.forEach(function(key) {
-      var req = store.IDBStore.delete(key);
-      req.onsuccess = function() { recordsLeftToDelete.add(-1); };
+      deleteFromStore(store, key, 'LOCAL').then(function() {
+        recordsLeftToDelete.add(-1);
+      });
     });
   });
 };
@@ -312,11 +318,7 @@ function emitChangeEvents(changes, dbStore) {
       origin: change.origin
     });
     if (dbStore.db.continuousWs && change.origin !== 'REMOTE') {
-      if (change.record.remoteOriginal) {
-        dbStore.db.continuousWs.send(updateMsg(dbStore.name, dbStore.db.clientId, change.record));
-      } else {
-        dbStore.db.continuousWs.send(createMsg(dbStore.name, dbStore.db.clientId, change.record));
-      }
+      sendChangeToRemote(dbStore.db.continuousWs, dbStore.name, dbStore.db.clientId, change.record);
     }
   });
 }
@@ -331,6 +333,23 @@ function insertValInStore(method, store, val, origin) {
         store.changedRecords.push({type: type, origin: origin, record: val});
       resolve(req.result);
     };
+  });
+}
+
+function deleteFromStore(store, key, origin) {
+  var IDBStore = store.IDBStore;
+  return new SyncPromise(function(resolve, reject) {
+    doGet(IDBStore, key, true).then(function(record) {
+      var tombstone = {version: record.version, key: record.key,
+                       changedSinceSync: 1, deleted: true};
+      store.changedRecords.push({type: 'delete', origin: origin, record: tombstone});
+      if (record.changedSinceSync === 1 && !record.remoteOriginal) {
+        var req = store.IDBStore.delete(key);
+        req.onsuccess = resolve;
+      } else {
+        putValToStore(store, tombstone, 'INTERNAL').then(resolve);
+      }
+    });
   });
 }
 
@@ -512,6 +531,26 @@ var updateMsg = function(storeName, clientId, record) {
   });
 };
 
+var deleteMsg = function(storeName, clientId, record) {
+  return JSON.stringify({
+    type: 'delete',
+    storeName: storeName,
+    key: record.key,
+    version: record.version,
+    clientId: clientId,
+  });
+};
+
+function sendChangeToRemote(ws, storeName, clientId, record) {
+  if (record.deleted) {
+    ws.send(deleteMsg(storeName, clientId, record));
+  } else if (record.remoteOriginal) {
+    ws.send(updateMsg(storeName, clientId, record));
+  } else {
+    ws.send(createMsg(storeName, clientId, record));
+  }
+}
+
 function updateStoreSyncedTo(metaStore, storeName, time) {
   metaStore.get(storeName + 'Meta')
   .then(function(storeMeta) {
@@ -584,8 +623,7 @@ var handleIncomingMessageByType = {
   },
   'delete': function(db, ws, msg) {
     db.write(msg.storeName, 'sdbMetaData', function(store, metaStore) {
-      store.delete(msg.key)
-      .then(function() {
+      deleteFromStore(store, msg.key).then(function() {
         updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
       });
     }).then(function() {
@@ -594,11 +632,15 @@ var handleIncomingMessageByType = {
   },
   'ok': function(db, ws, msg) {
     return db.write(msg.storeName, function(store) {
-      store.get(msg.key).then(function(record) {
-        record.changedSinceSync = 0;
-        record.version = msg.newVersion;
-        delete record.remoteOriginal;
-        putValToStore(store, record, 'INTERNAL');
+      doGet(store.IDBStore, msg.key, true).then(function(record) {
+        if (record.deleted) {
+          store.IDBStore.delete(msg.key);
+        } else {
+          record.changedSinceSync = 0;
+          record.version = msg.newVersion;
+          delete record.remoteOriginal;
+          putValToStore(store, record, 'INTERNAL');
+        }
       });
     }).then(function() {
       db.recordsToSync.add(-1);
@@ -624,11 +666,7 @@ function doPushToRemote(ctx) {
     .then(function(results) {
       ctx.db.recordsToSync.add(results.length);
       results.forEach(function(res) {
-        if (res.record.remoteOriginal) {
-          ctx.ws.send(updateMsg(res.storeName, ctx.clientId, res.record));
-        } else {
-          ctx.ws.send(createMsg(res.storeName, ctx.clientId, res.record));
-        }
+        sendChangeToRemote(ctx.ws, res.storeName, ctx.clientId, res.record);
       });
     });
   });

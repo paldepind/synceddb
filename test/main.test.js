@@ -603,7 +603,7 @@ describe('SyncedDB', function() {
           done();
         });
       });
-      it('synchonized records are marked as unchanged', function(done) {
+      it('synchronized records are marked as unchanged', function(done) {
         var road = {length: 100, price: 1337};
         onSend = function(msg) {
           var sent = JSON.parse(msg);
@@ -651,6 +651,55 @@ describe('SyncedDB', function() {
           var secondSend = JSON.parse(sendSpy.getCall(1).args[0]);
           assert.equal(secondSend.type, 'update');
           assert.equal(secondSend.diff.m[2], 110);
+          done();
+        });
+      });
+      it('sends deleted records', function(done) {
+        var road = {length: 100, price: 1337};
+        onSend = function(raw) {
+          var msg = JSON.parse(raw);
+          ws.onmessage({data: JSON.stringify({
+            type: 'ok',
+            storeName: 'roads',
+            key: msg.key || msg.record.key,
+            newVersion: (msg.version + 1) || 0,
+          })});
+        };
+        db.roads.put(road)
+        .then(function(key) {
+          return db.pushToRemote();
+        }).then(function() {
+          road.length = 110;
+          return db.roads.delete(road.key);
+        }).then(function() {
+          return db.pushToRemote();
+        }).then(function() {
+          var secondSend = JSON.parse(sendSpy.getCall(1).args[0]);
+          assert.equal(secondSend.type, 'delete');
+          done();
+        });
+      });
+      it('doesn\'t find synced and deleted records', function(done) {
+        var road = {length: 100, price: 1337};
+        onSend = function(raw) {
+          var msg = JSON.parse(raw);
+          ws.onmessage({data: JSON.stringify({
+            type: 'ok',
+            storeName: 'roads',
+            key: msg.key || msg.record.key,
+            newVersion: (msg.version + 1) || 0,
+          })});
+        };
+        db.roads.put(road)
+        .then(function(key) {
+          return db.pushToRemote();
+        }).then(function() {
+          return db.roads.delete(road.key);
+        }).then(function(r) {
+          return db.roads.get(road.key);
+        }).catch(function(el) {
+          return db.pushToRemote();
+        }).then(function(r) {
           done();
         });
       });
@@ -913,8 +962,6 @@ describe('SyncedDB', function() {
       it('sends updated records when syncing', function(done) {
         onSend = function(data) {
           var msg = JSON.parse(data);
-          console.log('msg');
-          console.log(msg);
           if (msg.type === 'get-changes') {
             ws.onmessage({data: JSON.stringify({
               type: 'sending-changes',
@@ -949,8 +996,6 @@ describe('SyncedDB', function() {
       it('sends multiple updates continuously', function(done) {
         onSend = function(data) {
           var msg = JSON.parse(data);
-          console.log('msg');
-          console.log(msg);
           if (msg.type === 'get-changes') {
             ws.onmessage({data: JSON.stringify({
               type: 'sending-changes',
