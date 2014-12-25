@@ -631,8 +631,10 @@ var handleIncomingMessageByType = {
     });
   },
   'ok': function(db, ws, msg) {
+    var record;
     return db.write(msg.storeName, function(store) {
-      doGet(store.IDBStore, msg.key, true).then(function(record) {
+      doGet(store.IDBStore, msg.key, true).then(function(rec) {
+        record = rec;
         if (record.deleted) {
           store.IDBStore.delete(msg.key);
         } else {
@@ -643,6 +645,7 @@ var handleIncomingMessageByType = {
         }
       });
     }).then(function() {
+      db.stores[msg.storeName].emit('synced', record);
       db.recordsToSync.add(-1);
     });
   },
