@@ -17,8 +17,12 @@ describe('SyncedDB', function() {
     req.onsuccess = function() { done(); };
   });
   describe('Opening a database', function() {
+    var db;
+    beforeEach(function() {
+      db = syncedDB.open({name: 'mydb', version: 1, stores: stores});
+    });
     it('return promise resolved with db and event', function(done) {
-      syncedDB.open('mydb', 1, []).then(function(res) {
+      syncedDB.open({name:'mydb', version: 1, stores: []}).then(function(res) {
         assert(res.db.db instanceof IDBDatabase);
         assert(res.e.type === 'success');
         done();
@@ -26,7 +30,7 @@ describe('SyncedDB', function() {
     });
     it('creates database with specified version', function(done) {
       var spy = sinon.spy();
-      syncedDB.open('mydb', 1, []).then(function() {
+      syncedDB.open({name:'mydb', version: 1, stores: []}).then(function() {
         var req = indexedDB.open('mydb', 1);
         req.onupgradeneeded = spy;
         req.onsuccess = function() {
@@ -38,7 +42,7 @@ describe('SyncedDB', function() {
       });
     });
     it('creates object stores', function(done) {
-      syncedDB.open('mydb', 1, stores).then(function() {
+      db.then(function() {
         var req = indexedDB.open('mydb', 1);
         req.onsuccess = function() {
           var db = req.result;
@@ -53,7 +57,7 @@ describe('SyncedDB', function() {
       });
     });
     it('handles object store parameters', function(done) {
-      syncedDB.open('mydb', 1, stores).then(function() {
+      db.then(function() {
         var req = indexedDB.open('mydb', 1);
         req.onsuccess = function() {
           var db = req.result;
@@ -73,7 +77,7 @@ describe('SyncedDB', function() {
       });
     });
     it('creates indexes ', function(done) {
-      syncedDB.open('mydb', 1, stores).then(function() {
+      db.then(function() {
         var req = indexedDB.open('mydb', 1);
         req.onsuccess = function() {
           var db = req.result;
@@ -98,11 +102,10 @@ describe('SyncedDB', function() {
       });
     });
     it('handles migrations with added stores', function(done) {
-      syncedDB.open('mydb', 1, stores)
-      .then(function() {
+      db.then(function() {
         var stores2 = {animals: stores.animals, roads: stores.roads, houses: stores.houses};
         stores2.books = [['byAuthor', 'author']];
-        return syncedDB.open('mydb', 2, stores2);
+        return syncedDB.open({name: 'mydb', version: 2, stores: stores2});
       }).then(function() {
         done();
       });
@@ -122,9 +125,10 @@ describe('SyncedDB', function() {
           ['byStreet', 'street'],
         ]
       };
-      syncedDB.open('mydb', 1, stores)
-      .then(function() {
-        return syncedDB.open('mydb', 2, stores2);
+      db.then(function() {
+        return syncedDB.open({name: 'mydb',
+                              version: 2,
+                              stores: stores2});
       }).then(function() {
         done();
       });
@@ -138,24 +142,28 @@ describe('SyncedDB', function() {
         2: m2,
         3: m3,
       };
-      syncedDB.open('mydb', 1, stores, migrations).then(function() {
+      syncedDB.open({name: 'another', version: 1,
+                    stores: stores, migrations: migrations})
+      .then(function() {
         assert(m1.firstCall.args[0] instanceof IDBDatabase);
         assert(m1.firstCall.args[1].type === 'upgradeneeded');
         assert(m2.notCalled);
         assert(m3.notCalled);
-        return syncedDB.open('mydb', 3, stores, migrations);
+        return syncedDB.open({name: 'another', version: 3,
+                              stores: stores, migrations: migrations});
       }).then(function() {
         assert(m2.calledOnce);
         assert(m3.calledOnce);
         assert(m3.firstCall.args[0] instanceof IDBDatabase);
         assert(m3.firstCall.args[1].type === 'upgradeneeded');
-        done();
+        var req = indexedDB.deleteDatabase('another');
+        req.onsuccess = function() { done(); };
       });
     });
   });
   describe('Database', function() {
     it('is exposes stores', function(done) {
-      var db = syncedDB.open('mydb', 1, stores);
+      var db = syncedDB.open({name: 'mydb', version: 1, stores: stores});
       db.then(function(db) {
         done();
       });
@@ -171,7 +179,7 @@ describe('SyncedDB', function() {
   describe('Transaction', function() {
     var db;
     beforeEach(function() {
-      db = syncedDB.open('mydb', 1, stores);
+      db = syncedDB.open({name: 'mydb', version: 1, stores: stores});
     });
     it('gives requested stores', function(done) {
       db.read('roads', 'houses', function(roads, houses) {
@@ -334,7 +342,7 @@ describe('SyncedDB', function() {
   describe('Store', function() {
     var db;
     beforeEach(function() {
-      db = syncedDB.open('mydb', 1, stores);
+      db = syncedDB.open({name: 'mydb', version: 1, stores: stores});
     });
     it('can get records by key', function(done) {
       var IDBDb;
@@ -429,14 +437,13 @@ describe('SyncedDB', function() {
     describe('Index', function() {
       var db, put, animals;
       beforeEach(function() {
-        db = syncedDB.open('mydb', 1, stores);
+        db = syncedDB.open({name: 'mydb', version: 1, stores: stores});
         animals = db.animals;
         put = animals.put({name: 'Thumper', race: 'rabbit', color: 'brown'},
                           {name: 'Fluffy', race: 'rabbit', color: 'white'},
                           {name: 'Bella', race: 'dog', color: 'white'});
       });
       it('supports getting by unique index', function(done) {
-        var db = syncedDB.open('mydb', 1, stores);
         put.then(function() {
           return animals.byName.get('Thumper');
         }).then(function(thumpers) {
@@ -477,15 +484,16 @@ describe('SyncedDB', function() {
   });
   describe('Events', function() {
     var db;
+    beforeEach(function() {
+      db = syncedDB.open({name: 'mydb', version: 1, stores: stores});
+    });
     it('emits add event when creating record', function(done) {
-      db = syncedDB.open('mydb', 1, stores);
       db.roads.on('add', function(e) {
         done();
       });
       db.roads.put({length: 100, price: 1337});
     });
     it('emits update event when modifying record', function(done) {
-      db = syncedDB.open('mydb', 1, stores);
       var spy1 = sinon.spy();
       var spy2 = sinon.spy();
       db.roads.on('add', spy1);
@@ -501,7 +509,6 @@ describe('SyncedDB', function() {
       });
     });
     it('emits event when creating object inside transactions', function(done) {
-      db = syncedDB.open('mydb', 1, stores);
       db.write('roads', function(roads) {
         roads.put({length: 100, price: 1337});
       });
@@ -511,7 +518,6 @@ describe('SyncedDB', function() {
     });
     it('add event contains the added record', function(done) {
       var record = {length: 100, price: 1337};
-      db = syncedDB.open('mydb', 1, stores);
       db.roads.on('add', function(e) {
         assert.equal(record.length, e.record.length);
         assert.equal(record.price, e.record.price);
@@ -526,7 +532,7 @@ describe('SyncedDB', function() {
     var ws, sendSpy;
     var onSend = function() {};
     beforeEach(function() {
-      db = syncedDB.open('mydb', 1, stores);
+      db = syncedDB.open({name: 'mydb', version: 1, stores: stores});
       onSend = function() {};
       sendSpy = sinon.spy();
       window.WebSocket = function(url, protocol) {

@@ -4,8 +4,12 @@
       ['byCreation', 'createdAt']
     ]
   };
-  var db = syncedDB.open('todoApp', 1, stores);
-  db.remote = 'localhost:8080';
+  var db = syncedDB.open({
+    name: 'todoApp',
+    version: 1,
+    stores: stores,
+    remote: 'localhost:8080',
+  });
 
   var tasks = [];
 

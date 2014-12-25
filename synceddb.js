@@ -418,16 +418,16 @@ var handleMigrations = function(version, storeDeclaration, migrationHooks, e) {
     callMigrationHooks({db: db, e: e}, migrationHooks, version, e.oldVersion);
 };
 
-var SDBDatabase = function(name, version, storeDecs, migrations) {
+var SDBDatabase = function(opts) {
   var db = this;
-  db.name = name;
-  db.remote = '';
-  db.version = version;
+  db.name = opts.name;
+  db.remote = opts.remote;
+  db.version = opts.version;
   db.recordsToSync = new Countdown();
   db.recordsLeft = new Countdown();
   db.stores = {};
   var stores = {};
-  eachKeyVal(storeDecs, function(storeName, indexes) {
+  eachKeyVal(opts.stores, function(storeName, indexes) {
     stores[storeName] = indexes.concat([['changedSinceSync', 'changedSinceSync']]);
   });
   // Create stores on db object
@@ -441,8 +441,8 @@ var SDBDatabase = function(name, version, storeDecs, migrations) {
   });
   db.sdbMetaData = new SDBObjectStore(db, 'sdbMetaData', []);
   this.promise = new Promise(function(resolve, reject) {
-    var req = indexedDB.open(name, version);
-    req.onupgradeneeded = handleMigrations.bind(null, version, stores, migrations);
+    var req = indexedDB.open(db.name, db.version);
+    req.onupgradeneeded = partial(handleMigrations, db.version, stores, opts.migrations);
     req.onsuccess = function(e) {
       db.db = req.result;
       db.db.onversionchange = handleVersionChange;
@@ -717,8 +717,8 @@ SDBDatabase.prototype.syncContinuously = function(/* storeNames */) {
   .then(doPushToRemote);
 };
 
-exports.open = function(name, version, stores, migrations) {
-  return new SDBDatabase(name, version, stores, migrations);
+exports.open = function(opts) {
+  return new SDBDatabase(opts);
 };
 
 return exports;

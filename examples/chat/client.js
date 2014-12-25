@@ -4,8 +4,12 @@
       ['bySentTime', 'sentAt']
     ]
   };
-  var db = syncedDB.open('chatApp', 1, stores);
-  db.remote = 'localhost:8080';
+  var db = syncedDB.open({
+    name: 'chatApp',
+    version: 1,
+    stores: stores,
+    remote: 'localhost:8080',
+  });
 
   document.addEventListener('DOMContentLoaded', function() {
     db.messages.on('add', function(e) {
@@ -17,10 +21,7 @@
     .then(function(messages) {
       messages.forEach(addMessage);
     });
-    db.pullFromRemote('messages')
-    .then(function() {
-      db.pushToRemote();
-    });
+    db.syncContinuously('messages');
 
     var addMessage = function(msg) {
       var list = document.getElementById('messages');
@@ -36,13 +37,7 @@
       db.messages.put({
         text: text,
         sentAt: Date.now()
-      }).then(function() {
-        db.pushToRemote();
       });
     });
-
-    setInterval(function() {
-      db.pullFromRemote('messages');
-    }, 2000);
   });
 }());
