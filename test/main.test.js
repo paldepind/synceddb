@@ -536,11 +536,16 @@ describe('SyncedDB', function() {
       onSend = function() {};
       sendSpy = sinon.spy();
       window.WebSocket = function(url, protocol) {
-        ws = new globalWebSocket('ws://localhost:3001');
-        ws.send = function() {
-          sendSpy.apply(null, arguments);
-          onSend.apply(null, arguments);
+        ws = {
+          close: function() {},
+          send: function() {
+            sendSpy.apply(null, arguments);
+            onSend.apply(null, arguments);
+          }
         };
+        setTimeout(function() {
+          ws.onopen();
+        }, 2);
         return ws;
       };
     });
