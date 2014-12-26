@@ -545,7 +545,7 @@ describe('SyncedDB', function() {
         };
         setTimeout(function() {
           ws.onopen();
-        }, 2);
+        }, 0);
         return ws;
       };
     });
@@ -585,7 +585,9 @@ describe('SyncedDB', function() {
           return db.pushToRemote();
         }).then(function() {
           var sent = JSON.parse(sendSpy.getCall(0).args[0]);
-          assert.deepEqual(sent.record, road);
+          assert.deepEqual(sent.record, {
+            length: 100, price: 1337, key: road.key
+          });
           done();
         });
       });
@@ -609,7 +611,9 @@ describe('SyncedDB', function() {
         })
         .then(function() {
           var sent = JSON.parse(sendSpy.getCall(0).args[0]);
-          assert.deepEqual(sent.record, road);
+          assert.deepEqual(sent.record, {
+            length: 100, price: 1337, key: road.key
+          });
           assert.equal(sendSpy.callCount, 1);
           done();
         });
@@ -912,6 +916,62 @@ describe('SyncedDB', function() {
           done();
         });
       });
+      it('emits conflic on update to changed record', function(done) {
+        var road = {length: 100, price: 1337};
+        var stub = sinon.stub().returnsArg(1);
+        db.stores.roads.handleConflict = stub;
+        onSend = function(raw) {
+          var msg = JSON.parse(raw);
+          if (msg.type === 'create') {
+            ws.onmessage({data: JSON.stringify({
+              type: 'ok',
+              storeName: 'roads',
+              key: msg.record.key,
+              newVersion: 0,
+            })});
+          } else if (msg.type === 'update') {
+            ws.onmessage({data: JSON.stringify({
+              type: 'ok',
+              storeName: 'roads',
+              key: msg.key,
+            })});
+          } else {
+            ws.onmessage({data: JSON.stringify({
+              type: 'sending-changes',
+              nrOfRecordsToSync: 1
+            })});
+            ws.onmessage({data: JSON.stringify({
+              type: 'update',
+              storeName: 'roads',
+              key: road.key,
+              timestamp: 1,
+              version: 1,
+              diff: {m: {1: 110}},
+            })});
+          }
+        };
+        db.roads.put(road)
+        .then(function() {
+          return db.pushToRemote();
+        }).then(function() {
+          road.price = 2000;
+          return db.roads.put(road);
+        }).then(function() {
+          return db.pullFromRemote();
+        }).then(function() {
+          assert(stub.calledOnce);
+          assert.deepEqual(stub.getCall(0).args[0], {
+            length: 100, price: 1337, key: road.key
+          });
+          assert.deepEqual(stub.getCall(0).args[1], {
+            length: 100, price: 2000, key: road.key
+          });
+          assert.deepEqual(stub.getCall(0).args[2], {
+            length: 110, price: 1337, key: road.key
+          });
+          done();
+        });
+      });
       it('requests changes since last sync', function(done) {
         onSend = function(msg) {
           var data = JSON.parse(msg);
@@ -1020,8 +1080,13 @@ describe('SyncedDB', function() {
           }).then(function() {
             var secondSend = JSON.parse(sendSpy.getCall(1).args[0]);
             assert.equal(secondSend.type, 'create');
-            assert.equal(secondSend.record.color, 'grey');
+            assert.deepEqual(secondSend.record, {
+              color: 'grey', name: 'Mister', key: cat.key
+            });
+            console.log(secondSend);
             var thirdSend = JSON.parse(sendSpy.getCall(2).args[0]);
+            console.log('thirdSend');
+            console.log(thirdSend);
             assert.equal(thirdSend.type, 'update');
             assert.equal(thirdSend.diff.m[1], 'white');
             done();

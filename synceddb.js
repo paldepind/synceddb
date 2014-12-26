@@ -31,6 +31,12 @@ function copyRecord(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
+function stripLocalMeta(record) {
+  delete record.remoteOriginal;
+  delete record.version;
+  delete record.changedSinceSync;
+}
+
 function partial() {
   return Function.bind.apply(arguments[0], arguments);
 }
@@ -296,6 +302,7 @@ SDBObjectStore.prototype.put = function(/* recs */) {
           record.version = req.result.version;
           if (req.result.changedSinceSync === 0) {
             record.remoteOriginal = copyRecord(req.result);
+            stripLocalMeta(record.remoteOriginal);
           }
           putValToStore(store, record, 'LOCAL').then(function(k) {
             recordsLeftToPut.add(-1);
@@ -506,6 +513,7 @@ var findRecordsChangedSinceSync = function(db, storeNames) {
 };
 
 var createMsg = function(storeName, clientId, record) {
+  stripLocalMeta(record);
   return JSON.stringify({
     type: 'create',
     storeName: storeName,
@@ -610,10 +618,19 @@ var handleIncomingMessageByType = {
   },
   'update': function(db, ws, msg) {
     db.write(msg.storeName, 'sdbMetaData', function(store, metaStore) {
-      store.get(msg.key)
-      .then(function(record) {
-        dffptch.patch(record, msg.diff);
-        return putValToStore(store, record, 'REMOTE');
+      doGet(store.IDBStore, msg.key, true).then(function(record) {
+        if (record.changedSinceSync === 1) { // Conflict
+          var original = record.remoteOriginal;
+          var local = record;
+          stripLocalMeta(local);
+          var remote = copyRecord(original);
+          dffptch.patch(remote, msg.diff);
+          var resolved = db.stores[msg.storeName].handleConflict(original, local, remote);
+          return putValToStore(store, resolved, 'LOCAL');
+        } else {
+          dffptch.patch(record, msg.diff);
+          return putValToStore(store, record, 'REMOTE');
+        }
       }).then(function() {
         updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
       });
