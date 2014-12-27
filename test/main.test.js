@@ -706,7 +706,7 @@ describe('SyncedDB', function() {
           return db.pushToRemote();
         }).then(function() {
           road.length = 110;
-          return db.roads.delete(road.key);
+          return db.roads.delete(road);
         }).then(function() {
           return db.pushToRemote();
         }).then(function() {
@@ -730,7 +730,7 @@ describe('SyncedDB', function() {
         .then(function(key) {
           return db.pushToRemote();
         }).then(function() {
-          return db.roads.delete(road.key);
+          return db.roads.delete(road);
         }).then(function(r) {
           return db.roads.get(road.key);
         }).catch(function(el) {
@@ -1000,7 +1000,7 @@ describe('SyncedDB', function() {
         .then(function() {
           return db.pushToRemote();
         }).then(function() {
-          return db.roads.delete(road.key);
+          return db.roads.delete(road);
         }).then(function() {
           return db.pullFromRemote();
         }).then(function() {

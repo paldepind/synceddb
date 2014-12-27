@@ -52,6 +52,10 @@ function isObject(o) {
   return o !== null && typeof o === 'object';
 }
 
+function isString(s) {
+  return typeof s === 'string';
+}
+
 function Countdown(initial) {
   this.val = initial || 0;
 }
@@ -259,8 +263,15 @@ SDBObjectStore.prototype.get = function(/* keys */) {
 
 SDBObjectStore.prototype.delete = function(/* keys */) {
   var store = this;
-  var keys = toArray(arguments);
+  var args = toArray(arguments);
   return doInStoreTx('readwrite', store, function(tx, resolve, reject) {
+    var invalidKey;
+    var keys = args.map(function(key) {
+      return isString(key) ? key
+           : isObject(key) && isString(key.key) ? key.key
+           : (invalidKey = key);
+    });
+    if (invalidKey) reject(new TypeError(invalidKey + ' is not a valid key'));
     var recordsLeftToDelete = new Countdown(keys.length);
     recordsLeftToDelete.onZero = resolve;
     keys.forEach(function(key) {
