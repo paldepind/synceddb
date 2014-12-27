@@ -286,7 +286,6 @@ describe('SyncedDB', function() {
     });
     describe('Indexes', function() {
       it('can get records by indexes', function(done) {
-        var road;
         var road = {length: 100, price: 1337};
         db.roads.put(road)
         .then(function() {
@@ -667,7 +666,6 @@ describe('SyncedDB', function() {
       });
       it('sends updated records', function(done) {
         var road = {length: 100, price: 1337};
-        var roadKey;
         onSend = function(raw) {
           var msg = JSON.parse(raw);
           ws.onmessage({data: JSON.stringify({
@@ -679,7 +677,6 @@ describe('SyncedDB', function() {
         };
         db.roads.put(road)
         .then(function(key) {
-          roadKey = key;
           return db.pushToRemote();
         }).then(function() {
           road.length = 110;
@@ -839,7 +836,6 @@ describe('SyncedDB', function() {
       });
       it('handles updated documents', function(done) {
         var road = {length: 100, price: 1337};
-        var roadKey;
         onSend = function(raw) {
           var msg = JSON.parse(raw);
           if (msg.type === 'create') {
@@ -857,7 +853,7 @@ describe('SyncedDB', function() {
             ws.onmessage({data: JSON.stringify({
               type: 'update',
               storeName: 'roads',
-              key: roadKey,
+              key: road.key,
               timestamp: 1,
               version: 1,
               diff: {m: {0: 110}},
@@ -916,7 +912,7 @@ describe('SyncedDB', function() {
           done();
         });
       });
-      it('emits conflic on update to changed record', function(done) {
+      it('emits conflict on update to changed record', function(done) {
         var road = {length: 100, price: 1337};
         var stub = sinon.stub().returnsArg(1);
         db.stores.roads.handleConflict = stub;
@@ -965,6 +961,55 @@ describe('SyncedDB', function() {
           });
           assert.deepEqual(stub.getCall(0).args[1], {
             length: 100, price: 2000, key: road.key
+          });
+          assert.deepEqual(stub.getCall(0).args[2], {
+            length: 110, price: 1337, key: road.key
+          });
+          done();
+        });
+      });
+      it('emits conflict on update to locally deleted record', function(done) {
+        var road = {length: 100, price: 1337};
+        var stub = sinon.stub().returnsArg(1);
+        db.stores.roads.handleConflict = stub;
+        onSend = function(raw) {
+          var msg = JSON.parse(raw);
+          if (msg.type === 'create') {
+            ws.onmessage({data: JSON.stringify({
+              type: 'ok',
+              storeName: 'roads',
+              key: msg.record.key,
+              newVersion: 0,
+            })});
+          } else {
+            ws.onmessage({data: JSON.stringify({
+              type: 'sending-changes',
+              nrOfRecordsToSync: 1
+            })});
+            ws.onmessage({data: JSON.stringify({
+              type: 'update',
+              storeName: 'roads',
+              key: road.key,
+              timestamp: 1,
+              version: 1,
+              diff: {m: {1: 110}},
+            })});
+          }
+        };
+        db.roads.put(road)
+        .then(function() {
+          return db.pushToRemote();
+        }).then(function() {
+          return db.roads.delete(road.key);
+        }).then(function() {
+          return db.pullFromRemote();
+        }).then(function() {
+          assert(stub.calledOnce);
+          assert.deepEqual(stub.getCall(0).args[0], {
+            length: 100, price: 1337, key: road.key
+          });
+          assert.deepEqual(stub.getCall(0).args[1], {
+            deleted: true, key: road.key
           });
           assert.deepEqual(stub.getCall(0).args[2], {
             length: 110, price: 1337, key: road.key

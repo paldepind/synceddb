@@ -35,6 +35,7 @@ function stripLocalMeta(record) {
   delete record.remoteOriginal;
   delete record.version;
   delete record.changedSinceSync;
+  return record;
 }
 
 function partial() {
@@ -301,8 +302,7 @@ SDBObjectStore.prototype.put = function(/* recs */) {
         req.onsuccess = function() {
           record.version = req.result.version;
           if (req.result.changedSinceSync === 0) {
-            record.remoteOriginal = copyRecord(req.result);
-            stripLocalMeta(record.remoteOriginal);
+            record.remoteOriginal = stripLocalMeta(copyRecord(req.result));
           }
           putValToStore(store, record, 'LOCAL').then(function(k) {
             recordsLeftToPut.add(-1);
@@ -347,8 +347,11 @@ function deleteFromStore(store, key, origin) {
   var IDBStore = store.IDBStore;
   return new SyncPromise(function(resolve, reject) {
     doGet(IDBStore, key, true).then(function(record) {
-      var tombstone = {version: record.version, key: record.key,
-                       changedSinceSync: 1, deleted: true};
+      var tombstone = {
+        version: record.version, key: record.key,
+        changedSinceSync: 1, deleted: true,
+        remoteOriginal: record.remoteOriginal || stripLocalMeta(copyRecord(record)),
+      };
       store.changedRecords.push({type: 'delete', origin: origin, record: tombstone});
       if (record.changedSinceSync === 1 && !record.remoteOriginal) {
         var req = store.IDBStore.delete(key);
@@ -621,8 +624,7 @@ var handleIncomingMessageByType = {
       doGet(store.IDBStore, msg.key, true).then(function(record) {
         if (record.changedSinceSync === 1) { // Conflict
           var original = record.remoteOriginal;
-          var local = record;
-          stripLocalMeta(local);
+          var local = stripLocalMeta(record);
           var remote = copyRecord(original);
           dffptch.patch(remote, msg.diff);
           var resolved = db.stores[msg.storeName].handleConflict(original, local, remote);
