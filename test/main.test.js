@@ -1017,6 +1017,55 @@ describe('SyncedDB', function() {
           done();
         });
       });
+      it('emits conflict on remote delete to locally modified record', function(done) {
+        var road = {length: 100, price: 1337};
+        var stub = sinon.stub().returnsArg(1);
+        db.stores.roads.handleConflict = stub;
+        onSend = function(raw) {
+          var msg = JSON.parse(raw);
+          if (msg.type === 'create') {
+            ws.onmessage({data: JSON.stringify({
+              type: 'ok',
+              storeName: 'roads',
+              key: msg.record.key,
+              newVersion: 0,
+            })});
+          } else {
+            ws.onmessage({data: JSON.stringify({
+              type: 'sending-changes',
+              nrOfRecordsToSync: 1
+            })});
+            ws.onmessage({data: JSON.stringify({
+              type: 'delete',
+              storeName: 'roads',
+              key: road.key,
+              timestamp: 1,
+              version: 1,
+            })});
+          }
+        };
+        db.roads.put(road)
+        .then(function() {
+          return db.pushToRemote();
+        }).then(function() {
+          road.length = 110;
+          return db.roads.put(road);
+        }).then(function() {
+          return db.pullFromRemote();
+        }).then(function() {
+          assert(stub.calledOnce);
+          assert.deepEqual(stub.getCall(0).args[0], {
+            length: 100, price: 1337, key: road.key
+          });
+          assert.deepEqual(stub.getCall(0).args[1], {
+            length: 110, price: 1337, key: road.key
+          });
+          assert.deepEqual(stub.getCall(0).args[2], {
+            deleted: true, key: road.key
+          });
+          done();
+        });
+      });
       it('requests changes since last sync', function(done) {
         onSend = function(msg) {
           var data = JSON.parse(msg);

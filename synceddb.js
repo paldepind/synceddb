@@ -653,7 +653,18 @@ var handleIncomingMessageByType = {
   },
   'delete': function(db, ws, msg) {
     db.write(msg.storeName, 'sdbMetaData', function(store, metaStore) {
-      deleteFromStore(store, msg.key).then(function() {
+      doGet(store.IDBStore, msg.key, true).then(function(record) {
+        if (record.changedSinceSync === 1 && !record.deleted) {
+          var original = record.remoteOriginal;
+          var local = stripLocalMeta(record);
+          var remote = {deleted: true, key: msg.key};
+          var resolved = db.stores[msg.storeName].handleConflict(original, local, remote);
+          resolved.deleted ? deleteFromStore(store, msg.key)
+                           : putValToStore(store, resolved, 'LOCAL');
+        } else {
+          deleteFromStore(store, msg.key);
+        }
+      }).then(function() {
         updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
       });
     }).then(function() {
