@@ -72,9 +72,11 @@ function SyncPromise(fn) {
 }
 
 SyncPromise.prototype._resolve = function(val) {
+  var self = this;
   if (val && typeof val.then == 'function') {
     val.then(this._resolve.bind(this));
   } else {
+    self.val = val;
     this._thenCbs.forEach(function(fn) {
       fn(val);
     });
@@ -90,16 +92,18 @@ SyncPromise.prototype._reject = function(val) {
 SyncPromise.prototype.then = function(onFulfilled) {
   var self = this;
   return (new SyncPromise(function(resolve, reject) {
-    self._thenCbs.push(function(result) {
-      if (typeof onFulfilled === 'function') {
-        resolve(onFulfilled(result));
-      } else {
-        resolve(result);
-      }
-    });
-    self._catchCbs.push(function(reason) {
-      reject(reason);
-    });
+    if ('val' in self) {
+      resolve(typeof onFulfilled === 'function' ? onFulfilled(self.val)
+                                                : self.val);
+    } else {
+      self._thenCbs.push(function(result) {
+        resolve(typeof onFulfilled === 'function' ? onFulfilled(result)
+                                                  : result);
+      });
+      self._catchCbs.push(function(reason) {
+        reject(reason);
+      });
+    }
   }));
 };
 
@@ -178,12 +182,8 @@ function doIndexGet(idx, ranges, tx, resolve, reject) {
     var req = index.openCursor(range);
     req.onsuccess = function() {
       var cursor = req.result;
-      if (cursor) {
-        records.push(cursor.value);
-        cursor.continue();
-      } else {
-        rangesLeft.add(-1);
-      }
+      cursor ? (records.push(cursor.value), cursor.continue())
+             : rangesLeft.add(-1);
     };
   });
 }
@@ -300,32 +300,30 @@ function doInStoreTx(mode, store, cb) {
   }
 }
 
+function doPutRecord(store, record) {
+  record.changedSinceSync = 1;
+  return new SyncPromise(function(resolve, reject) {
+    if (record.key) { // Update existing record
+      doGet(store.IDBStore, record.key).then(function(oldRecord) {
+        record.version = oldRecord.version;
+        if (oldRecord.changedSinceSync === 0) {
+          record.remoteOriginal = stripLocalMeta(copyRecord(oldRecord));
+        }
+        putValToStore(store, record, 'LOCAL').then(resolve);
+      });
+    } else { // Add new record
+      record.key = Math.random().toString(36);
+      addValToStore(store, record, 'LOCAL').then(resolve);
+    }
+  });
+}
+
 SDBObjectStore.prototype.put = function(/* recs */) {
   var recs = toArray(arguments);
   var store = this;
   return doInStoreTx('readwrite', store, function(tx, resolve, reject) {
-    var recordsLeftToPut = new Countdown(recs.length);
-    recordsLeftToPut.onZero = resolve;
-    recs.forEach(function(record) {
-      record.changedSinceSync = 1;
-      if (record.key) {
-        var req = store.IDBStore.get(record.key);
-        req.onsuccess = function() {
-          record.version = req.result.version;
-          if (req.result.changedSinceSync === 0) {
-            record.remoteOriginal = stripLocalMeta(copyRecord(req.result));
-          }
-          putValToStore(store, record, 'LOCAL').then(function(k) {
-            recordsLeftToPut.add(-1);
-          });
-        };
-      } else {
-        record.key = Math.random().toString(36);
-        addValToStore(store, record, 'LOCAL').then(function(k) {
-          recordsLeftToPut.add(-1);
-        });
-      }
-    });
+    var puts = recs.map(partial(doPutRecord, store));
+    SyncPromise.all(puts).then(resolve);
   });
 };
 
@@ -377,22 +375,6 @@ function deleteFromStore(store, key, origin) {
 var putValToStore = partial(insertValInStore, 'put');
 var addValToStore = partial(insertValInStore, 'add');
 
-var insertValsInStore = function(method, store, vals, origin) {
-  return new SyncPromise(function(resolve, reject) {
-    var keys = [];
-    vals.forEach(function(val) {
-      insertValInStore(method, store, val, origin).then(function(key) {
-        keys.push(key);
-        if (keys.length === vals.length)
-          resolve(vals.length == 1 ? keys[0] : keys);
-      });
-    });
-  });
-};
-
-var putValsToStore = insertValsInStore.bind(null, 'put');
-var addValsToStore = insertValsInStore.bind(null, 'add');
-
 var createKeyRange = function(r) {
   var gt   = 'gt' in r,
       gte  = 'gte' in r,
@@ -400,9 +382,9 @@ var createKeyRange = function(r) {
       lte  = 'lte' in r,
       low  = gt ? r.gt : r.gte,
       high = lt ? r.lt : r.lte;
-  return !(gt || gte) ? IDBKeyRange.upperBound(high, lt)
-       : !(lt || lte) ? IDBKeyRange.lowerBound(low, gt)
-                      : IDBKeyRange.bound(low, high, gt, lt);
+  return !gt && !gte ? IDBKeyRange.upperBound(high, lt)
+       : !lt && !lte ? IDBKeyRange.lowerBound(low, gt)
+                     : IDBKeyRange.bound(low, high, gt, lt);
 };
 
 function callMigrationHooks(data, migrations, newV, curV) {
@@ -445,7 +427,7 @@ var SDBDatabase = function(opts) {
   db.remote = opts.remote;
   db.version = opts.version;
   db.recordsToSync = new Countdown();
-  db.recordsLeft = new Countdown();
+  db.changesLeftFromRemote = new Countdown();
   db.stores = {};
   var stores = {};
   eachKeyVal(opts.stores, function(storeName, indexes) {
@@ -516,8 +498,7 @@ var findRecordsChangedSinceSync = function(db, storeNames) {
   return db.transaction(storeNames, 'r', function() {
     var stores = toArray(arguments);
     stores.forEach(function(store) {
-      store.changedSinceSync.get(1)
-      .then(function(rs) {
+      store.changedSinceSync.get(1).then(function(rs) {
         rs.forEach(function(r) {
           records.push({record: r, storeName: store.name});
         });
@@ -564,18 +545,14 @@ var deleteMsg = function(storeName, clientId, record) {
 };
 
 function sendChangeToRemote(ws, storeName, clientId, record) {
-  if (record.deleted) {
-    ws.send(deleteMsg(storeName, clientId, record));
-  } else if (record.remoteOriginal) {
-    ws.send(updateMsg(storeName, clientId, record));
-  } else {
-    ws.send(createMsg(storeName, clientId, record));
-  }
+  var msgFunc = record.deleted        ? deleteMsg
+              : record.remoteOriginal ? updateMsg 
+                                      : createMsg;
+  ws.send(msgFunc(storeName, clientId, record));
 }
 
 function updateStoreSyncedTo(metaStore, storeName, time) {
-  metaStore.get(storeName + 'Meta')
-  .then(function(storeMeta) {
+  metaStore.get(storeName + 'Meta').then(function(storeMeta) {
     storeMeta.syncedTo = time;
     putValToStore(metaStore, storeMeta, 'INTERNAL');
   });
@@ -585,8 +562,7 @@ function getClientId(db, ws) {
   if (db.clientId) {
     return Promise.resolve(db.clientId);
   } else {
-    return db.sdbMetaData.get('meta')
-    .then(function(meta) {
+    return db.sdbMetaData.get('meta').then(function(meta) {
       if (meta.clientId) {
         db.clientId = meta.clientId;
         return meta.clientId;
@@ -604,8 +580,7 @@ function getClientId(db, ws) {
 }
 
 function requestChangesToStore(db, ws, clientId, storeName) {
-  db.sdbMetaData.get(storeName + 'Meta')
-  .then(function(storeMeta) {
+  db.sdbMetaData.get(storeName + 'Meta').then(function(storeMeta) {
     ws.send({
       type: 'get-changes',
       storeNames: storeName,
@@ -615,23 +590,27 @@ function requestChangesToStore(db, ws, clientId, storeName) {
   });
 }
 
+function handleRemoteChange(db, storeName, cb) {
+  db.write(storeName, 'sdbMetaData', cb).then(function() {
+    db.changesLeftFromRemote.add(-1);
+  });
+}
+
 var handleIncomingMessageByType = {
   'sending-changes': function(db, ws, msg) {
-    db.recordsLeft.add(msg.nrOfRecordsToSync);
+    db.changesLeftFromRemote.add(msg.nrOfRecordsToSync);
   },
   'create': function(db, ws, msg) {
     msg.record.changedSinceSync = 0;
-    db.write(msg.storeName, 'sdbMetaData', function(store, metaStore) {
+    handleRemoteChange(db, msg.storeName, function(store, metaStore) {
       addValToStore(store, msg.record, 'REMOTE')
       .then(function() {
         updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
       });
-    }).then(function() {
-      db.recordsLeft.add(-1);
     });
   },
   'update': function(db, ws, msg) {
-    db.write(msg.storeName, 'sdbMetaData', function(store, metaStore) {
+    handleRemoteChange(db, msg.storeName, function(store, metaStore) {
       doGet(store.IDBStore, msg.key, true).then(function(record) {
         if (record.changedSinceSync === 1) { // Conflict
           var original = record.remoteOriginal;
@@ -647,12 +626,10 @@ var handleIncomingMessageByType = {
       }).then(function() {
         updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
       });
-    }).then(function() {
-      db.recordsLeft.add(-1);
     });
   },
   'delete': function(db, ws, msg) {
-    db.write(msg.storeName, 'sdbMetaData', function(store, metaStore) {
+    handleRemoteChange(db, msg.storeName, function(store, metaStore) {
       doGet(store.IDBStore, msg.key, true).then(function(record) {
         if (record.changedSinceSync === 1 && !record.deleted) {
           var original = record.remoteOriginal;
@@ -667,8 +644,6 @@ var handleIncomingMessageByType = {
       }).then(function() {
         updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
       });
-    }).then(function() {
-      db.recordsLeft.add(-1);
     });
   },
   'ok': function(db, ws, msg) {
@@ -698,7 +673,7 @@ function handleIncomingMessage(db, ws, msg) {
 
 function doPullFromRemote(ctx) {
   return new Promise(function(resolve, reject) {
-    ctx.db.recordsLeft.onZero = partial(resolve, ctx);
+    ctx.db.changesLeftFromRemote.onZero = partial(resolve, ctx);
     ctx.storeNames.map(partial(requestChangesToStore, ctx.db, ctx.ws, ctx.clientId));
   });
 }
@@ -707,9 +682,9 @@ function doPushToRemote(ctx) {
   return new Promise(function(resolve, reject) {
     ctx.db.recordsToSync.onZero = partial(resolve, ctx);
     findRecordsChangedSinceSync(ctx.db, ctx.storeNames)
-    .then(function(results) {
-      ctx.db.recordsToSync.add(results.length);
-      results.forEach(function(res) {
+    .then(function(records) {
+      ctx.db.recordsToSync.add(records.length);
+      records.forEach(function(res) {
         sendChangeToRemote(ctx.ws, res.storeName, ctx.clientId, res.record);
       });
     });
@@ -718,8 +693,7 @@ function doPushToRemote(ctx) {
 
 function getSyncContext(db, storeNamesArgs) {
   var storeNames = storeNamesArgs.length ? toArray(storeNamesArgs) : Object.keys(db.stores);
-  return getClientId(db)
-  .then(function(clientId) {
+  return getClientId(db).then(function(clientId) {
     return new Promise(function(resolve, reject) {
       var ws = new WrappedSocket('ws://' + db.remote);
       ws.on('message', partial(handleIncomingMessage, db, ws));
