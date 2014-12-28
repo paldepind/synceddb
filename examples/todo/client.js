@@ -43,21 +43,39 @@
       taskElm.innerHTML = '<span>' + task.description + '</span><a class="delete">×</a>';
       taskElm.addEventListener('click', toggleDone.bind(null, task));
       taskElm.querySelector('.delete').addEventListener('click', deleteTask.bind(null, task));
+      taskElm.style.transform = 'scale(.5)';
+      taskElm.style.marginBottom = '-1.9em';
+      taskElm.style.opacity = '0';
       if (task.finished) taskElm.classList.add('task-finished');
       list.appendChild(taskElm);
+      setTimeout(function() {
+        taskElm.style.transform = 'scale(1)';
+        taskElm.style.opacity = '1';
+        taskElm.style.marginBottom = '0';
+        setTimeout(function() {
+          taskElm.style.transform = 'none';
+        }, 200);
+      }, 10);
     };
 
-    var updateTaskElm = function(task) {
+    function updateTaskElm(task) {
       var taskElm = document.getElementById('task-' + task.key);
       if (taskElm.classList.contains('task-finished') !== task.finished) {
         taskElm.classList.toggle('task-finished');
       }
-    };
+    }
 
-    var deleteTaskElm = function(task) {
+    function deleteTaskElm(task) {
       var taskElm = document.getElementById('task-' + task.key);
-      taskElm.parentNode.removeChild(taskElm);
-    };
+      taskElm.style.transform = 'scale(.5)';
+      taskElm.style.opacity = '0';
+      setTimeout(function() {
+        taskElm.style.marginBottom = '-1.9em';
+        setTimeout(function() {
+          taskElm.parentNode.removeChild(taskElm);
+        }, 200);
+      }, 200);
+    }
 
     function toggleDone(task, ev) {
       console.log('toggle task');
