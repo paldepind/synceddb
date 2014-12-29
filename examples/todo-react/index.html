@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Chat</title>
+    <style>
+    body {
+      font-family: sans-serif;
+      line-height: 1.5em;
+    }
+    * {
+      transition: .2s all ease;
+    }
+    #wrapper {
+      width: 30em;
+      margin: 0 auto;
+    }
+    #tasks {
+      list-style: none;
+      padding: 0;
+    }
+    #tasks li {
+      cursor: pointer;
+      margin: .5em 0;
+      padding: .5em;
+      box-shadow: 0 0 3px rgba(0, 0, 0, 0.25);
+    }
+    #tasks .task-finished {
+      color: grey;
+    }
+    #tasks li span {
+      display: inline-block;
+      transform: translateX(0em);
+    }
+    .delete {
+      display: inline-block;
+      float: right;
+      padding: 0 0.17em;
+    }
+    .delete:hover {
+      background: rgb(234, 73, 73);
+      color: white;
+    }
+    #tasks .task-finished span {
+      transform: translateX(1.5em);
+    }
+    #tasks li::before {
+      transition: .2s all ease;
+      content: '✓';
+      transform: scale(9);
+      margin: 0 -1.4em 0 .4em;
+      width: 1.1em;
+      opacity: 0;
+      position: relative;
+      z-index: -1;
+      color: green;
+      display: inline-block;
+    }
+    #tasks .task-finished::before {
+      opacity: 1;
+      transform: scale(1.8);
+    }
+    #add-todo-form {
+      box-shadow: 0 0 3px rgba(0, 0, 0, 0.25);
+    }
+    button {
+      float: right;
+      color: white;
+      background: green;
+      border: 0;
+      padding: .5em 1em;
+      box-sizing: border-box;
+      cursor: pointer;
+    }
+    input {
+      width: 100%;
+      display: block;
+      box-sizing: border-box;
+      border: 0px solid black;
+      background: white;
+      padding: .5em;
+    }
+    </style>
+    <script src='../../synceddb.js'></script>
+    <script src='../../bower_components/minivents-cuzzo/minivents.js'></script>
+    <script src='../../bower_components/dffptch/dist/dffptch-global.js'></script>
+    <script src='./bower_components/reflux/dist/reflux.js'></script>
+    <script src='./bower_components/react/react.js'></script>
+    <script src='./build/client.js'></script>
+  </head>
+  <body>
+    <div id="wrapper"></div>
+  </body>
+</html>
