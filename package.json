@@ -10,5 +10,8 @@
   "license": "na",
   "devDependencies": {
     "mocha": "^2.0.1"
+  },
+  "dependencies": {
+    "ws": "^0.6.3"
   }
 }
