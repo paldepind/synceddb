@@ -546,7 +546,7 @@ var deleteMsg = function(storeName, clientId, record) {
 
 function sendChangeToRemote(ws, storeName, clientId, record) {
   var msgFunc = record.deleted        ? deleteMsg
-              : record.remoteOriginal ? updateMsg 
+              : record.remoteOriginal ? updateMsg
                                       : createMsg;
   ws.send(msgFunc(storeName, clientId, record));
 }
@@ -692,6 +692,10 @@ function doPushToRemote(ctx) {
 }
 
 function getSyncContext(db, storeNamesArgs) {
+  if (db.syncing) {
+    return Promise.reject({type: 'AlreadySyncing'});
+  }
+  db.syncing = true;
   var storeNames = storeNamesArgs.length ? toArray(storeNamesArgs) : Object.keys(db.stores);
   return getClientId(db).then(function(clientId) {
     return new Promise(function(resolve, reject) {
@@ -704,25 +708,28 @@ function getSyncContext(db, storeNamesArgs) {
   });
 }
 
-function closeWsInCtx(ctx) { ctx.ws.close(); }
+function closeSyncContext(ctx) {
+  ctx.db.syncing = false;
+  ctx.ws.close();
+}
 
 SDBDatabase.prototype.pushToRemote = function(/* storeNames */) {
   return getSyncContext(this, arguments)
   .then(doPushToRemote)
-  .then(closeWsInCtx);
+  .then(closeSyncContext);
 };
 
 SDBDatabase.prototype.pullFromRemote = function(/* storeNames */) {
   return getSyncContext(this, arguments)
   .then(doPullFromRemote)
-  .then(closeWsInCtx);
+  .then(closeSyncContext);
 };
 
 SDBDatabase.prototype.sync = function(/* storeNames */) {
   return getSyncContext(this, arguments)
   .then(doPullFromRemote)
   .then(doPushToRemote)
-  .then(closeWsInCtx);
+  .then(closeSyncContext);
 };
 
 SDBDatabase.prototype.syncContinuously = function(/* storeNames */) {

@@ -279,7 +279,7 @@ describe('SyncedDB', function() {
         }).then(function() {
           return db.roads.get(road.key);
         }).then(function(r) {
-          assert(r.length === 110);
+          assert.equal(r.length, 110);
           done();
         });
       });
@@ -557,6 +557,14 @@ describe('SyncedDB', function() {
         done();
       });
       db.roads.put({length: 100, price: 1337});
+    });
+    it('can\'t begin sync when already syncing', function(done) {
+      db.sync().then(function() {
+      });
+      db.sync().catch(function(err) {
+        assert.equal(err.type, 'AlreadySyncing');
+        done();
+      });
     });
     it('finds newly added records', function(done) {
       db.roads.put({length: 100, price: 1337})
