@@ -559,11 +559,20 @@ describe('SyncedDB', function() {
       db.roads.put({length: 100, price: 1337});
     });
     it('can\'t begin sync when already syncing', function(done) {
-      db.sync().then(function() {
-      });
-      db.sync().catch(function(err) {
-        assert.equal(err.type, 'AlreadySyncing');
+      onSend = function(msg) {
+        var data = JSON.parse(msg);
+        assert.equal(data.type, 'get-changes');
+        assert.deepEqual(data.storeNames, 'roads');
+        ws.onmessage({data: JSON.stringify({
+          type: 'sending-changes',
+          nrOfRecordsToSync: 0
+        })});
+      };
+      db.sync('roads').then(function() {
         done();
+      });
+      db.sync('roads').catch(function(err) {
+        assert.equal(err.type, 'AlreadySyncing');
       });
     });
     it('finds newly added records', function(done) {
