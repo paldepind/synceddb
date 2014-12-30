@@ -25,6 +25,13 @@ Features
 * Powerful conflict handling
 * and more
 
+Missing features
+----------------
+* API for IndexedDB cursors
+* Report sync progress – for displaying progress bars
+* Backend persistence (currently in memory only)
+* Make backend extensible with hooks for alternative DBs/authentication/etc.
+
 Try it
 ------
 Get the repository
