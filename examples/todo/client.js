@@ -44,18 +44,18 @@
       taskElm.addEventListener('click', toggleDone.bind(null, task));
       taskElm.querySelector('.delete').addEventListener('click', deleteTask.bind(null, task));
       taskElm.style.transform = 'scale(.5)';
-      taskElm.style.marginBottom = '-1.9em';
+      taskElm.style.marginBottom = '-2.6em';
       taskElm.style.opacity = '0';
       if (task.finished) taskElm.classList.add('task-finished');
       list.appendChild(taskElm);
+      // Make sure the initial state is applied.
+      getComputedStyle(taskElm).opacity;
+      taskElm.style.transform = 'scale(1)';
+      taskElm.style.opacity = '1';
+      taskElm.style.marginBottom = '0';
       setTimeout(function() {
-        taskElm.style.transform = 'scale(1)';
-        taskElm.style.opacity = '1';
-        taskElm.style.marginBottom = '0';
-        setTimeout(function() {
-          taskElm.style.transform = 'none';
-        }, 200);
-      }, 10);
+        taskElm.style.transform = 'none';
+      }, 200);
     };
 
     function updateTaskElm(task) {
@@ -70,7 +70,7 @@
       taskElm.style.transform = 'scale(.5)';
       taskElm.style.opacity = '0';
       setTimeout(function() {
-        taskElm.style.marginBottom = '-1.9em';
+        taskElm.style.marginBottom = '-2.6em';
         setTimeout(function() {
           taskElm.parentNode.removeChild(taskElm);
         }, 200);
@@ -78,9 +78,6 @@
     }
 
     function toggleDone(task, ev) {
-      console.log('toggle task');
-      console.log(task);
-      console.log(ev);
       task.finished = !task.finished;
       db.tasks.put(task);
     }
@@ -88,8 +85,6 @@
     function deleteTask(task, ev) {
       ev.preventDefault();
       ev.cancelBubble = true;
-      console.log('delete');
-      console.log(task);
       db.tasks.delete(task.key);
     }
 
@@ -97,7 +92,6 @@
       e.preventDefault();
       var desc = document.getElementById('todo-description').value;
       document.getElementById('todo-description').value = '';
-      console.log(desc);
       db.tasks.put({
         description: desc,
         finished: false,
