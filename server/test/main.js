@@ -1,13 +1,27 @@
 var WebSocket = require('ws');
 var assert = require('assert');
 
+function socketConversation(ws, funcs) {
+  var r = funcs[0]();
+  if (r) ws.send(JSON.stringify(r));
+  var next = 1;
+  ws.onmessage = function(msg) {
+    var r = funcs[next++](JSON.parse(msg.data));
+    if (r) ws.send(JSON.stringify(r));
+  };
+}
+
 describe('Backend', function() {
   var ws;
   beforeEach(function() {
     ws = new WebSocket('ws://localhost:8080');
   });
-  afterEach(function() {
-    ws.close();
+  afterEach(function(done) {
+    ws.send(JSON.stringify({type: 'reset'}));
+    ws.onmessage = function() {
+      ws.close();
+      done();
+    };
   });
   it('get zero changes initially', function(done) {
     ws.onmessage = function(msg) {
@@ -25,31 +39,109 @@ describe('Backend', function() {
       }));
     };
   });
-  it('receives sent changes on request', function(done) {
+  it('sends created records on request', function(done) {
     var data1, data2;
     ws.onopen = function() {
-      ws.send(JSON.stringify({
-        type: 'create',
-        storeName: 'animals',
-        clientId: 'foo',
-        record: {name: 'Stampe', key: 1},
-      }));
-      ws.onmessage = getFirstOk;
+      socketConversation(ws, [
+        function() {
+          return {
+            type: 'create',
+            storeName: 'animals',
+            clientId: 'foo',
+            record: {name: 'Stampe', key: 1},
+          };
+        },
+        function getFirstOk(data) {
+          data1 = data;
+          return {
+            type: 'create',
+            storeName: 'animals',
+            clientId: 'foo',
+            record: {name: 'Smask', key: 2},
+          };
+        },
+        function getSecondOk(data) {
+          data2 = data;
+          assert.notEqual(data1.newVersion, data2.newVersion);
+          return {
+            type: 'get-changes',
+            since: -1,
+            storeNames: 'animals',
+            clientId: 'otherfoo',
+          };
+        },
+        function getFirstChange(data) {
+          assert.equal(data.nrOfRecordsToSync, 2);
+        },
+        function getSecondChange(data) {
+          assert.equal(data.record.name, 'Stampe');
+        },
+        function getThirdChange(data) {
+          assert.equal(data.record.name, 'Smask');
+          done();
+        }
+      ]);
     };
-    function getFirstOk(msg) {
-      data1 = JSON.parse(msg.data);
-      ws.send(JSON.stringify({
-        type: 'create',
-        storeName: 'animals',
-        clientId: 'foo',
-        record: {name: 'Smask', key: 2},
-      }));
-      ws.onmessage = getSecondOk;
-    }
-    function getSecondOk(msg) {
-      data2 = JSON.parse(msg.data);
-      assert.notEqual(data1.newVersion, data2.newVersion);
-      done();
-    }
+  });
+  it('only sends changes after timestamp', function(done) {
+    var firstTimestamp;
+    ws.onopen = function() {
+      socketConversation(ws, [
+        function() {
+          return {
+            type: 'create',
+            storeName: 'animals',
+            clientId: 'foo',
+            record: {name: 'Stampe', key: 1},
+          };
+        },
+        function(data) {
+          console.log(data);
+          assert.equal(data.type, 'ok');
+          return {
+            type: 'get-changes',
+            since: -1,
+            storeNames: 'animals',
+            clientId: 'otherfoo',
+          };
+        },
+        function(data) {
+          console.log(data);
+          assert.equal(data.nrOfRecordsToSync, 1);
+        },
+        function(data) {
+          assert.equal(data.record.name, 'Stampe');
+          firstTimestamp = data.timestamp;
+          console.log('with timepstam');
+          console.log(data);
+          assert.equal(data.record.name, 'Stampe');
+          return {
+            type: 'create',
+            storeName: 'animals',
+            clientId: 'foo',
+            record: {name: 'Smask', key: 2},
+          };
+        },
+        function(data) {
+          console.log(data);
+          assert.equal(data.type, 'ok');
+          return {
+            type: 'get-changes',
+            since: firstTimestamp,
+            storeNames: 'animals',
+            clientId: 'otherfoo',
+          };
+        },
+        function(data) {
+          console.log(data);
+          assert.equal(data.nrOfRecordsToSync, 1);
+        },
+        function(data) {
+          console.log(data);
+          assert.equal(data.record.name, 'Smask');
+          done();
+        }
+      ]);
+    };
   });
 });
