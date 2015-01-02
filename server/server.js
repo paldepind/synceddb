@@ -9,7 +9,36 @@ wss.broadcastToOther = function broadcast(ws, data) {
   }
 };
 
-var changes = [];
+// Persistence hooks
+
+var changes = {};
+
+function saveChange(change) {
+  if (!changes[change.storeName]) {
+    changes[change.storeName] = [];
+  }
+  console.log('saving change to', change.storeName);
+  change.timestamp = changes[change.storeName].length;
+  changes[change.storeName].push(change);
+}
+
+function getChanges(req) {
+  console.log('get changes from ', req.storeNames);
+  var storeChanges = changes[req.storeNames];
+  console.log(storeChanges);
+  if (storeChanges) {
+    console.log('getting store changes');
+    return storeChanges.slice(req.since + 1).filter(function(change) {
+      return req.clientId !== change.clientId;
+    });
+  } else {
+    return [];
+  }
+}
+
+function resetChanges() {
+  changes = {};
+}
 
 handleCreateMsg = function(ws, msg) {
   msg.record.version = 0;
@@ -18,14 +47,13 @@ handleCreateMsg = function(ws, msg) {
     storeName: msg.storeName,
     record: msg.record,
     clientId: msg.clientId,
-    timestamp: changes.length,
   };
-  changes.push(change);
+  saveChange(change);
   ws.send(JSON.stringify({
     type: 'ok',
     storeName: msg.storeName,
     key: msg.record.key,
-    newVersion: 0,
+    newVersion: msg.record.key,
   }));
   wss.broadcastToOther(ws, JSON.stringify(change));
 };
@@ -35,12 +63,11 @@ handleUpdateMsg = function(ws, msg) {
     type: 'update',
     storeName: msg.storeName,
     clientId: msg.clientId,
-    timestamp: changes.length,
     diff: msg.diff,
     key: msg.key,
     version: msg.version + 1,
   };
-  changes.push(change);
+  saveChange(change);
   ws.send(JSON.stringify({
     type: 'ok',
     storeName: msg.storeName,
@@ -55,11 +82,10 @@ handleDeleteMsg = function(ws, msg) {
     type: 'delete',
     storeName: msg.storeName,
     clientId: msg.clientId,
-    timestamp: changes.length,
     key: msg.key,
     version: msg.version + 1,
   };
-  changes.push(change);
+  saveChange(change);
   ws.send(JSON.stringify({
     type: 'ok',
     storeName: msg.storeName,
@@ -69,10 +95,13 @@ handleDeleteMsg = function(ws, msg) {
   wss.broadcastToOther(ws, JSON.stringify(change));
 };
 
+handleResetMsg = function(ws, msg) {
+  resetChanges();
+  ws.send(JSON.stringify({type: 'reset'}));
+};
+
 sendChanges = function(ws, msg) {
-  var changesToSend = changes.slice(msg.since + 1).filter(function(change) {
-    return msg.clientId !== change.clientId;
-  });
+  var changesToSend = getChanges(msg);
   ws.send(JSON.stringify({
     type: 'sending-changes',
     nrOfRecordsToSync: changesToSend.length,
@@ -86,6 +115,7 @@ var handleMessageType = {
   create: handleCreateMsg,
   update: handleUpdateMsg,
   delete: handleDeleteMsg,
+  reset: handleResetMsg,
   'get-changes': sendChanges,
 };
 

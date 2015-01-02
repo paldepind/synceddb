@@ -51,16 +51,16 @@ describe('Backend', function() {
             record: {name: 'Stampe', key: 1},
           };
         },
-        function getFirstOk(data) {
+        function(data) {
           data1 = data;
           return {
             type: 'create',
             storeName: 'animals',
             clientId: 'foo',
-            record: {name: 'Smask', key: 2},
+            record: {name: 'Thumper', key: 2},
           };
         },
-        function getSecondOk(data) {
+        function(data) {
           data2 = data;
           assert.notEqual(data1.newVersion, data2.newVersion);
           return {
@@ -70,14 +70,15 @@ describe('Backend', function() {
             clientId: 'otherfoo',
           };
         },
-        function getFirstChange(data) {
+        function(data) {
+          console.log(data);
           assert.equal(data.nrOfRecordsToSync, 2);
         },
-        function getSecondChange(data) {
+        function(data) {
           assert.equal(data.record.name, 'Stampe');
         },
-        function getThirdChange(data) {
-          assert.equal(data.record.name, 'Smask');
+        function(data) {
+          assert.equal(data.record.name, 'Thumper');
           done();
         }
       ]);
@@ -96,7 +97,6 @@ describe('Backend', function() {
           };
         },
         function(data) {
-          console.log(data);
           assert.equal(data.type, 'ok');
           return {
             type: 'get-changes',
@@ -106,14 +106,11 @@ describe('Backend', function() {
           };
         },
         function(data) {
-          console.log(data);
           assert.equal(data.nrOfRecordsToSync, 1);
         },
         function(data) {
           assert.equal(data.record.name, 'Stampe');
           firstTimestamp = data.timestamp;
-          console.log('with timepstam');
-          console.log(data);
           assert.equal(data.record.name, 'Stampe');
           return {
             type: 'create',
@@ -123,7 +120,6 @@ describe('Backend', function() {
           };
         },
         function(data) {
-          console.log(data);
           assert.equal(data.type, 'ok');
           return {
             type: 'get-changes',
@@ -133,14 +129,62 @@ describe('Backend', function() {
           };
         },
         function(data) {
-          console.log(data);
           assert.equal(data.nrOfRecordsToSync, 1);
         },
         function(data) {
-          console.log(data);
           assert.equal(data.record.name, 'Smask');
           done();
         }
+      ]);
+    };
+  });
+  it('only sends changes from requested store', function(done) {
+    ws.onopen = function() {
+      socketConversation(ws, [
+        function() {
+          return {
+            type: 'create',
+            storeName: 'animals',
+            clientId: 'foo',
+            record: {name: 'Stampe', key: 1},
+          };
+        },
+        function(data) {
+          data1 = data;
+          return {
+            type: 'create',
+            storeName: 'roads',
+            clientId: 'foo',
+            record: {length: 100, key: 2},
+          };
+        },
+        function(data) {
+          return {
+            type: 'get-changes',
+            since: -1,
+            storeNames: 'roads',
+            clientId: 'otherfoo',
+          };
+        },
+        function(data) {
+          assert.equal(data.nrOfRecordsToSync, 1);
+        },
+        function(data) {
+          assert.equal(data.record.length, 100);
+          return {
+            type: 'get-changes',
+            since: -1,
+            storeNames: 'animals',
+            clientId: 'otherfoo',
+          };
+        },
+        function(data) {
+          assert.equal(data.nrOfRecordsToSync, 1);
+        },
+        function(data) {
+          assert.equal(data.record.name, 'Stampe');
+          done();
+        },
       ]);
     };
   });
