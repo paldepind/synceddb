@@ -34,7 +34,7 @@ describe('Backend', function() {
       ws.send(JSON.stringify({
         type: 'get-changes',
         since: -1,
-        storeNames: 'animals',
+        storeName: 'animals',
         clientId: 'foo',
       }));
     };
@@ -66,7 +66,7 @@ describe('Backend', function() {
           return {
             type: 'get-changes',
             since: -1,
-            storeNames: 'animals',
+            storeName: 'animals',
             clientId: 'otherfoo',
           };
         },
@@ -101,7 +101,7 @@ describe('Backend', function() {
           return {
             type: 'get-changes',
             since: -1,
-            storeNames: 'animals',
+            storeName: 'animals',
             clientId: 'otherfoo',
           };
         },
@@ -124,7 +124,7 @@ describe('Backend', function() {
           return {
             type: 'get-changes',
             since: firstTimestamp,
-            storeNames: 'animals',
+            storeName: 'animals',
             clientId: 'otherfoo',
           };
         },
@@ -162,7 +162,7 @@ describe('Backend', function() {
           return {
             type: 'get-changes',
             since: -1,
-            storeNames: 'roads',
+            storeName: 'roads',
             clientId: 'otherfoo',
           };
         },
@@ -174,7 +174,7 @@ describe('Backend', function() {
           return {
             type: 'get-changes',
             since: -1,
-            storeNames: 'animals',
+            storeName: 'animals',
             clientId: 'otherfoo',
           };
         },

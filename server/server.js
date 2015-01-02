@@ -23,8 +23,8 @@ function saveChange(change) {
 }
 
 function getChanges(req) {
-  console.log('get changes from ', req.storeNames);
-  var storeChanges = changes[req.storeNames];
+  console.log('get changes from ', req.storeName);
+  var storeChanges = changes[req.storeName];
   console.log(storeChanges);
   if (storeChanges) {
     console.log('getting store changes');

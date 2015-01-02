@@ -583,7 +583,7 @@ function requestChangesToStore(db, ws, clientId, storeName) {
   db.sdbMetaData.get(storeName + 'Meta').then(function(storeMeta) {
     ws.send({
       type: 'get-changes',
-      storeNames: storeName,
+      storeName: storeName,
       clientId: clientId,
       since: storeMeta.syncedTo,
     });
