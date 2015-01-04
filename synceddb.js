@@ -423,6 +423,7 @@ var handleMigrations = function(version, storeDeclaration, migrationHooks, e) {
 
 var SDBDatabase = function(opts) {
   var db = this;
+  Events(db);
   db.name = opts.name;
   db.remote = opts.remote;
   db.version = opts.version;
@@ -598,6 +599,7 @@ function handleRemoteChange(db, storeName, cb) {
 
 var handleIncomingMessageByType = {
   'sending-changes': function(db, ws, msg) {
+    db.emit('sync-initiated', msg);
     db.changesLeftFromRemote.add(msg.nrOfRecordsToSync);
   },
   'create': function(db, ws, msg) {

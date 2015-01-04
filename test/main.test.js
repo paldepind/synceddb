@@ -672,8 +672,7 @@ describe('SyncedDB', function() {
           })});
         };
         db.roads.on('synced', spy);
-        db.roads.put(road)
-        .then(function(roadId) {
+        db.roads.put(road).then(function(roadId) {
           return db.pushToRemote();
         }).then(function() {
           assert(spy.calledOnce);
@@ -1134,6 +1133,30 @@ describe('SyncedDB', function() {
         db.pullFromRemote('roads')
         .then(function() {
           assert.equal(key, 'foo');
+          done();
+        });
+      });
+      it.only('emits event when sync is started', function(done) {
+        var road = {length: 100, price: 1337};
+        var spy = sinon.spy();
+        onSend = function(msg) {
+          var data = JSON.parse(msg);
+          assert(data.type === 'get-changes');
+          ws.onmessage({data: JSON.stringify({
+            type: 'sending-changes',
+            nrOfRecordsToSync: 1
+          })});
+          ws.onmessage({data: JSON.stringify({
+            type: 'create',
+            storeName: 'roads',
+            timestamp: 1,
+            record: {version: 0, length: 133, price: 1000, key: 'foo'}
+          })});
+        };
+        db.on('sync-initiated', spy);
+        db.pullFromRemote('roads').then(function() {
+          assert(spy.calledOnce);
+          assert.equal(spy.firstCall.args[0].nrOfRecordsToSync, 1);
           done();
         });
       });
