@@ -562,7 +562,7 @@ describe('SyncedDB', function() {
       onSend = function(msg) {
         var data = JSON.parse(msg);
         assert.equal(data.type, 'get-changes');
-        assert.deepEqual(data.storeNames, 'roads');
+        assert.deepEqual(data.storeName, 'roads');
         ws.onmessage({data: JSON.stringify({
           type: 'sending-changes',
           nrOfRecordsToSync: 0
@@ -762,7 +762,7 @@ describe('SyncedDB', function() {
         onSend = function(msg) {
           var data = JSON.parse(msg);
           assert.equal(data.type, 'get-changes');
-          assert.deepEqual(data.storeNames, 'roads');
+          assert.deepEqual(data.storeName, 'roads');
           ws.onmessage({data: JSON.stringify({
             type: 'sending-changes',
             nrOfRecordsToSync: 0
@@ -777,7 +777,7 @@ describe('SyncedDB', function() {
         onSend = function(msg) {
           var data = JSON.parse(msg);
           assert.equal(data.type, 'get-changes');
-          assert.deepEqual(data.storeNames, 'roads');
+          assert.deepEqual(data.storeName, 'roads');
           ws.onmessage({data: JSON.stringify({
             type: 'sending-changes',
             nrOfRecordsToSync: 1
@@ -801,7 +801,7 @@ describe('SyncedDB', function() {
         onSend = function(msg) {
           var data = JSON.parse(msg);
           assert.equal(data.type, 'get-changes');
-          assert.deepEqual(data.storeNames, 'roads');
+          assert.deepEqual(data.storeName, 'roads');
           ws.onmessage({data: JSON.stringify({
             type: 'sending-changes',
             nrOfRecordsToSync: 1
@@ -826,7 +826,7 @@ describe('SyncedDB', function() {
         onSend = function(msg) {
           var data = JSON.parse(msg);
           assert.equal(data.type, 'get-changes');
-          assert.deepEqual(data.storeNames, 'roads');
+          assert.deepEqual(data.storeName, 'roads');
           ws.onmessage({data: JSON.stringify({
             type: 'sending-changes',
             nrOfRecordsToSync: 1
@@ -1086,7 +1086,7 @@ describe('SyncedDB', function() {
       it('requests changes since last sync', function(done) {
         onSend = function(msg) {
           var data = JSON.parse(msg);
-          if (data.since === -1) {
+          if (data.since === null) {
             ws.onmessage({data: JSON.stringify({
               type: 'sending-changes',
               nrOfRecordsToSync: 1
