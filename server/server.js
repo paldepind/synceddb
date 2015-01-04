@@ -24,11 +24,12 @@ function saveChange(change) {
 
 function getChanges(req) {
   console.log('get changes from ', req.storeName);
+  var since = req.since === null ? -1 : req.since;
   var storeChanges = changes[req.storeName];
   console.log(storeChanges);
   if (storeChanges) {
     console.log('getting store changes');
-    return storeChanges.slice(req.since + 1).filter(function(change) {
+    return storeChanges.slice(since + 1).filter(function(change) {
       return req.clientId !== change.clientId;
     });
   } else {

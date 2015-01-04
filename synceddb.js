@@ -410,7 +410,7 @@ var handleMigrations = function(version, storeDeclaration, migrationHooks, e) {
       store = req.transaction.objectStore(storeName);
     } else {
       store = db.createObjectStore(storeName, {keyPath: 'key'});
-      metaStore.put({key: storeName + 'Meta', syncedTo: -1});
+      metaStore.put({key: storeName + 'Meta', syncedTo: null});
     }
     indexes.forEach(function(index) {
       if (!store.indexNames.contains(index[0]))

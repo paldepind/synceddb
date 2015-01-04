@@ -33,7 +33,7 @@ describe('Backend', function() {
     ws.onopen = function() {
       ws.send(JSON.stringify({
         type: 'get-changes',
-        since: -1,
+        since: null,
         storeName: 'animals',
         clientId: 'foo',
       }));
@@ -65,7 +65,7 @@ describe('Backend', function() {
           assert.notEqual(data1.newVersion, data2.newVersion);
           return {
             type: 'get-changes',
-            since: -1,
+            since: null,
             storeName: 'animals',
             clientId: 'otherfoo',
           };
@@ -100,7 +100,7 @@ describe('Backend', function() {
           assert.equal(data.type, 'ok');
           return {
             type: 'get-changes',
-            since: -1,
+            since: null,
             storeName: 'animals',
             clientId: 'otherfoo',
           };
@@ -161,7 +161,7 @@ describe('Backend', function() {
         function(data) {
           return {
             type: 'get-changes',
-            since: -1,
+            since: null,
             storeName: 'roads',
             clientId: 'otherfoo',
           };
@@ -173,7 +173,7 @@ describe('Backend', function() {
           assert.equal(data.record.length, 100);
           return {
             type: 'get-changes',
-            since: -1,
+            since: null,
             storeName: 'animals',
             clientId: 'otherfoo',
           };
