@@ -37,6 +37,12 @@ function getChanges(req) {
   }
 }
 
+function getChangesToRecord(storeName, key) {
+  return store[storeName].filte(function(change) {
+    return change.key === key;
+  });
+}
+
 function resetChanges() {
   changes = {};
 }
@@ -47,6 +53,7 @@ handleCreateMsg = function(ws, msg) {
     type: 'create',
     storeName: msg.storeName,
     record: msg.record,
+    key: msg.record.key,
     clientId: msg.clientId,
   };
   saveChange(change);
