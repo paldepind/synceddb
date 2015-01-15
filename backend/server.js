@@ -1,6 +1,8 @@
 var WebSocketServer = require('ws').Server;
 var wss = new WebSocketServer({port: 8080});
 
+var MemoryPersistence = require('./persistence/memory');
+
 wss.broadcastToOther = function broadcast(ws, data) {
   for(var i in this.clients) {
     if (this.clients[i] !== ws) {
@@ -9,43 +11,7 @@ wss.broadcastToOther = function broadcast(ws, data) {
   }
 };
 
-// Persistence hooks
-
-var changes = {};
-
-function saveChange(change) {
-  if (!changes[change.storeName]) {
-    changes[change.storeName] = [];
-  }
-  console.log('saving change to', change.storeName);
-  change.timestamp = changes[change.storeName].length;
-  changes[change.storeName].push(change);
-}
-
-function getChanges(req) {
-  console.log('get changes from ', req.storeName);
-  var since = req.since === null ? -1 : req.since;
-  var storeChanges = changes[req.storeName];
-  console.log(storeChanges);
-  if (storeChanges) {
-    console.log('getting store changes');
-    return storeChanges.slice(since + 1).filter(function(change) {
-      return req.clientId !== change.clientId;
-    });
-  } else {
-    return [];
-  }
-}
-
-function getChangesToRecord(storeName, key) {
-  return store[storeName].filte(function(change) {
-    return change.key === key;
-  });
-}
-
-function resetChanges() {
-  changes = {};
-}
+var persistence = new MemoryPersistence();
 
 handleCreateMsg = function(ws, msg) {
   msg.record.version = 0;
@@ -56,7 +22,7 @@ handleCreateMsg = function(ws, msg) {
     key: msg.record.key,
     clientId: msg.clientId,
   };
-  saveChange(change);
+  persistence.saveChange(change);
   ws.send(JSON.stringify({
     type: 'ok',
     storeName: msg.storeName,
@@ -75,7 +41,7 @@ handleUpdateMsg = function(ws, msg) {
     key: msg.key,
     version: msg.version + 1,
   };
-  saveChange(change);
+  persistence.saveChange(change);
   ws.send(JSON.stringify({
     type: 'ok',
     storeName: msg.storeName,
@@ -93,7 +59,7 @@ handleDeleteMsg = function(ws, msg) {
     key: msg.key,
     version: msg.version + 1,
   };
-  saveChange(change);
+  persistence.saveChange(change);
   ws.send(JSON.stringify({
     type: 'ok',
     storeName: msg.storeName,
@@ -104,12 +70,12 @@ handleDeleteMsg = function(ws, msg) {
 };
 
 handleResetMsg = function(ws, msg) {
-  resetChanges();
+  persistence.resetChanges();
   ws.send(JSON.stringify({type: 'reset'}));
 };
 
 sendChanges = function(ws, msg) {
-  var changesToSend = getChanges(msg);
+  var changesToSend = persistence.getChanges(msg);
   ws.send(JSON.stringify({
     type: 'sending-changes',
     nrOfRecordsToSync: changesToSend.length,
