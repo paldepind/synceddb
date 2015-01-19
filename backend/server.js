@@ -1,19 +1,6 @@
 var WebSocketServer = require('ws').Server;
-var wss = new WebSocketServer({port: 8080});
 
-var MemoryPersistence = require('./persistence/memory');
-
-wss.broadcastToOther = function broadcast(ws, data) {
-  for(var i in this.clients) {
-    if (this.clients[i] !== ws) {
-      this.clients[i].send(data);
-    }
-  }
-};
-
-var persistence = new MemoryPersistence();
-
-handleCreateMsg = function(ws, msg) {
+var handleCreateMsg = function(msg, store, respond, broadcast) {
   msg.record.version = 0;
   var change = {
     type: 'create',
@@ -22,17 +9,17 @@ handleCreateMsg = function(ws, msg) {
     key: msg.record.key,
     clientId: msg.clientId,
   };
-  persistence.saveChange(change);
-  ws.send(JSON.stringify({
+  store.saveChange(change);
+  respond({
     type: 'ok',
     storeName: msg.storeName,
     key: msg.record.key,
     newVersion: msg.record.key,
-  }));
-  wss.broadcastToOther(ws, JSON.stringify(change));
+  });
+  broadcast(change);
 };
 
-handleUpdateMsg = function(ws, msg) {
+var handleUpdateMsg = function(msg, store, respond, broadcast) {
   var change = {
     type: 'update',
     storeName: msg.storeName,
@@ -41,17 +28,17 @@ handleUpdateMsg = function(ws, msg) {
     key: msg.key,
     version: msg.version + 1,
   };
-  persistence.saveChange(change);
-  ws.send(JSON.stringify({
+  store.saveChange(change);
+  respond({
     type: 'ok',
     storeName: msg.storeName,
     key: msg.key,
     newVersion: msg.version + 1,
-  }));
-  wss.broadcastToOther(ws, JSON.stringify(change));
+  });
+  broadcast(change);
 };
 
-handleDeleteMsg = function(ws, msg) {
+var handleDeleteMsg = function(msg, store, respond, broadcast) {
   var change = {
     type: 'delete',
     storeName: msg.storeName,
@@ -59,30 +46,31 @@ handleDeleteMsg = function(ws, msg) {
     key: msg.key,
     version: msg.version + 1,
   };
-  persistence.saveChange(change);
-  ws.send(JSON.stringify({
+  store.saveChange(change);
+  respond({
     type: 'ok',
     storeName: msg.storeName,
     key: msg.key,
     newVersion: msg.version + 1,
-  }));
-  wss.broadcastToOther(ws, JSON.stringify(change));
+  });
+  broadcast(change);
 };
 
-handleResetMsg = function(ws, msg) {
-  persistence.resetChanges();
-  ws.send(JSON.stringify({type: 'reset'}));
+var handleResetMsg = function(msg, store, respond, broadcast) {
+  store.resetChanges();
+  respond({type: 'reset'});
 };
 
-sendChanges = function(ws, msg) {
-  var changesToSend = persistence.getChanges(msg);
-  ws.send(JSON.stringify({
+var sendChanges = function(msg, store, respond, broadcast) {
+  var changesToSend = store.getChanges(msg);
+  respond({
     type: 'sending-changes',
     nrOfRecordsToSync: changesToSend.length,
-  }));
-  changesToSend.forEach(function(change) {
-    ws.send(JSON.stringify(change));
   });
+  changesToSend.forEach(function(change) {
+    respond(change);
+  });
+  return {};
 };
 
 var handleMessageType = {
@@ -93,12 +81,32 @@ var handleMessageType = {
   'get-changes': sendChanges,
 };
 
-wss.on('connection', function(ws) {
-  ws.on('message', function(msg) {
-    console.log(msg);
-    var data = JSON.parse(msg);
-    if (data.type && data.type in handleMessageType) {
-      handleMessageType[data.type](ws, data);
+function send(ws, msg) {
+  ws.send(JSON.stringify(msg));
+}
+
+function broadcast(wss, ws, msg) {
+  var string = JSON.stringify(msg);
+  for(var i in wss.clients) {
+    if (wss.clients[i] !== ws) {
+      wss.clients[i].send(string);
     }
+  }
+}
+
+function Server(opts) {
+  var wss = new WebSocketServer({port: opts.port || 8080});
+
+  wss.on('connection', function(ws) {
+    ws.on('message', function(msg) {
+      var data = JSON.parse(msg);
+      if (data.type && data.type in handleMessageType) {
+        var s = send.bind(null, ws);
+        var b = broadcast.bind(null, wss, ws);
+        var result = handleMessageType[data.type](data, opts.store, s, b);
+      }
+    });
   });
-});
+}
+
+exports.Server = Server;
