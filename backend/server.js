@@ -1,3 +1,4 @@
+var extend = require('xtend');
 var WebSocketServer = require('ws').Server;
 
 var handleCreateMsg = function(msg, store, respond, broadcast) {
@@ -95,18 +96,29 @@ function broadcast(wss, ws, msg) {
 }
 
 function Server(opts) {
-  var wss = new WebSocketServer({port: opts.port || 8080});
-
-  wss.on('connection', function(ws) {
+  var server = this;
+  server.resetHandlers();
+  server.wss = new WebSocketServer({port: opts.port || 8080});
+  server.wss.on('connection', function(ws) {
     ws.on('message', function(msg) {
       var data = JSON.parse(msg);
-      if (data.type && data.type in handleMessageType) {
+      if (data.type && data.type in server.handlers) {
         var s = send.bind(null, ws);
-        var b = broadcast.bind(null, wss, ws);
-        var result = handleMessageType[data.type](data, opts.store, s, b);
+        var b = broadcast.bind(null, server.wss, ws);
+        var result = server.handlers[data.type](data, opts.store, s, b);
       }
     });
   });
 }
+
+Server.defaultHandlers = handleMessageType;
+
+Server.prototype.resetHandlers = function() {
+  this.handlers = extend({}, handleMessageType);
+};
+
+Server.prototype.close = function() {
+  this.wss.close();
+};
 
 exports.Server = Server;

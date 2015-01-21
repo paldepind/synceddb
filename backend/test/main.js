@@ -185,4 +185,29 @@ describe('Backend', function() {
       },
     ]);
   });
+  it('calls custom create handler correctly', function(done) {
+    var called = false;
+    server.handlers['create'] = function(msg, store, respond, broadcast) {
+      called = true;
+      assert.equal(msg.type, 'create');
+      assert.equal(typeof respond, 'function');
+      assert.equal(typeof broadcast, 'function');
+      Server.defaultHandlers['create'].apply(null, arguments);
+    };
+    socketConversation(ws, [
+      function() {
+        return {
+          type: 'create',
+          storeName: 'animals',
+          clientId: 'foo',
+          record: {name: 'Stampe', key: 1},
+        };
+      },
+      function(data) {
+        assert.equal(data.type, 'ok');
+        assert(called);
+        done();
+      }
+    ]);
+  });
 });
