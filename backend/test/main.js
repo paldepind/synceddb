@@ -1,6 +1,14 @@
 var WebSocket = require('ws');
 var assert = require('assert');
 
+var Server = require('../server').Server;
+var MemoryPersistence = require('../persistence/memory');
+
+var server = new Server({
+  port: 8080,
+  store: new MemoryPersistence(),
+});
+
 function socketConversation(ws, funcs) {
   var r = funcs[0]();
   if (r) ws.send(JSON.stringify(r));
