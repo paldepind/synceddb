@@ -531,7 +531,6 @@ describe('SyncedDB', function() {
     var ws, sendSpy;
     var onSend = function() {};
     beforeEach(function() {
-      db = syncedDB.open({name: 'mydb', version: 1, stores: stores});
       onSend = function() {};
       sendSpy = sinon.spy();
       window.WebSocket = function(url, protocol) {
@@ -547,6 +546,7 @@ describe('SyncedDB', function() {
         }, 0);
         return ws;
       };
+      db = syncedDB.open({name: 'mydb', version: 1, stores: stores});
     });
     afterEach(function() {
       window.WebSocket = globalWebSocket;
@@ -1136,7 +1136,22 @@ describe('SyncedDB', function() {
           done();
         });
       });
-      it.only('emits event when sync is started', function(done) {
+      it('emits event when custom message recieved', function(done) {
+        db.messages.on('myMsgType', function(msg) {
+          assert.deepEqual(msg, {type: 'myMsgType', data: 'stuff'});
+          done();
+        });
+        onSend = function(msg) {
+          var data = JSON.parse(msg);
+          assert(data.type === 'get-changes');
+          ws.onmessage({data: JSON.stringify({
+            type: 'myMsgType',
+            data: 'stuff',
+          })});
+        };
+        db.pullFromRemote('animals');
+      });
+      it('emits event when sync is started', function(done) {
         var road = {length: 100, price: 1337};
         var spy = sinon.spy();
         onSend = function(msg) {

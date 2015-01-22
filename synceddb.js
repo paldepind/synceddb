@@ -429,6 +429,7 @@ var SDBDatabase = function(opts) {
   db.version = opts.version;
   db.recordsToSync = new Countdown();
   db.changesLeftFromRemote = new Countdown();
+  db.messages = new Events();
   db.stores = {};
   var stores = {};
   eachKeyVal(opts.stores, function(storeName, indexes) {
@@ -670,7 +671,9 @@ var handleIncomingMessageByType = {
 };
 
 function handleIncomingMessage(db, ws, msg) {
-  handleIncomingMessageByType[msg.type](db, ws, msg);
+  var handler = handleIncomingMessageByType[msg.type];
+  handler ? handler(db, ws, msg)
+          : db.messages.emit(msg.type, msg);
 }
 
 function doPullFromRemote(ctx) {
