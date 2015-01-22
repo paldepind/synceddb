@@ -10,14 +10,16 @@ var handleCreateMsg = function(msg, store, respond, broadcast) {
     key: msg.record.key,
     clientId: msg.clientId,
   };
-  store.saveChange(change);
-  respond({
-    type: 'ok',
-    storeName: msg.storeName,
-    key: msg.record.key,
-    newVersion: msg.record.key,
+  store.saveChange(change)
+  .then(function() {
+    respond({
+      type: 'ok',
+      storeName: msg.storeName,
+      key: msg.record.key,
+      newVersion: msg.record.key,
+    });
+    broadcast(change);
   });
-  broadcast(change);
 };
 
 var handleUpdateMsg = function(msg, store, respond, broadcast) {
@@ -29,14 +31,16 @@ var handleUpdateMsg = function(msg, store, respond, broadcast) {
     key: msg.key,
     version: msg.version + 1,
   };
-  store.saveChange(change);
-  respond({
-    type: 'ok',
-    storeName: msg.storeName,
-    key: msg.key,
-    newVersion: msg.version + 1,
+  store.saveChange(change)
+  .then(function() {
+    respond({
+      type: 'ok',
+      storeName: msg.storeName,
+      key: msg.key,
+      newVersion: msg.version + 1,
+    });
+    broadcast(change);
   });
-  broadcast(change);
 };
 
 var handleDeleteMsg = function(msg, store, respond, broadcast) {
@@ -47,31 +51,35 @@ var handleDeleteMsg = function(msg, store, respond, broadcast) {
     key: msg.key,
     version: msg.version + 1,
   };
-  store.saveChange(change);
-  respond({
-    type: 'ok',
-    storeName: msg.storeName,
-    key: msg.key,
-    newVersion: msg.version + 1,
+  store.saveChange(change)
+  .then(function() {
+    respond({
+      type: 'ok',
+      storeName: msg.storeName,
+      key: msg.key,
+      newVersion: msg.version + 1,
+    });
+    broadcast(change);
   });
-  broadcast(change);
 };
 
 var handleResetMsg = function(msg, store, respond, broadcast) {
-  store.resetChanges();
-  respond({type: 'reset'});
+  store.resetChanges()
+  .then(function() {
+    respond({type: 'reset'});
+  });
 };
 
 var sendChanges = function(msg, store, respond, broadcast) {
-  var changesToSend = store.getChanges(msg);
-  respond({
-    type: 'sending-changes',
-    nrOfRecordsToSync: changesToSend.length,
+  store.getChanges(msg).then(function(changesToSend) {
+    respond({
+      type: 'sending-changes',
+      nrOfRecordsToSync: changesToSend.length,
+    });
+    changesToSend.forEach(function(change) {
+      respond(change);
+    });
   });
-  changesToSend.forEach(function(change) {
-    respond(change);
-  });
-  return {};
 };
 
 var handleMessageType = {

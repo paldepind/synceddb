@@ -5,14 +5,14 @@ function testPersistence(Persistence) {
       store = new Persistence();
     });
     it('saves changes to store', function() {
-      store.saveChange({
+      return store.saveChange({
         type: 'create',
         storeName: 'animals',
         clientId: 'foo',
         record: {name: 'Thumper'},
       });
     });
-  });
+   });
 }
 
 exports.testPersistence = testPersistence;
