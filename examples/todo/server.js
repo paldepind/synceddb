@@ -1,5 +1,5 @@
 var Server = require('../../backend/server').Server;
-var MemoryPersistence = require('../../backend/persistence/memory');
+var MemoryPersistence = require('../../persistence/memory');
 
 var server = new Server({
   port: 8080,
