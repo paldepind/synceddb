@@ -187,7 +187,7 @@ describe('Backend', function() {
   });
   it('calls custom create handler correctly', function(done) {
     var called = false;
-    server.handlers['create'] = function(msg, store, respond, broadcast) {
+    server.handlers['create'] = function(clientData, store, msg, respond, broadcast) {
       called = true;
       assert.equal(msg.type, 'create');
       assert.equal(typeof respond, 'function');
@@ -206,6 +206,42 @@ describe('Backend', function() {
       function(data) {
         assert.equal(data.type, 'ok');
         assert(called);
+        done();
+      }
+    ]);
+  });
+  it('is possible for handlers to store data on connected clients', function(done) {
+    var dataPersisted = false;
+    server.handlers['create'] = function(clientData, store, msg, respond, broadcast) {
+      if (!clientData.test) {
+        clientData.test = 'foobar';
+      } else {
+        assert.equal(clientData.test, 'foobar');
+        dataPersisted = true;
+      }
+      Server.defaultHandlers['create'].apply(null, arguments);
+    };
+    socketConversation(ws, [
+      function() {
+        return {
+          type: 'create',
+          storeName: 'animals',
+          clientId: 'foo',
+          record: {name: 'Stampe', key: 1},
+        };
+      },
+      function(data) {
+        assert.equal(data.type, 'ok');
+        return {
+          type: 'create',
+          storeName: 'animals',
+          clientId: 'foo',
+          record: {name: 'Stampe', key: 1},
+        };
+      },
+      function(data) {
+        assert.equal(data.type, 'ok');
+        assert(dataPersisted);
         done();
       }
     ]);

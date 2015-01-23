@@ -1,7 +1,7 @@
 var extend = require('xtend');
 var WebSocketServer = require('ws').Server;
 
-var handleCreateMsg = function(msg, store, respond, broadcast) {
+var handleCreateMsg = function(clientData, store, msg, respond, broadcast) {
   msg.record.version = 0;
   var change = {
     type: 'create',
@@ -22,7 +22,7 @@ var handleCreateMsg = function(msg, store, respond, broadcast) {
   });
 };
 
-var handleUpdateMsg = function(msg, store, respond, broadcast) {
+var handleUpdateMsg = function(clientData, store, msg, respond, broadcast) {
   var change = {
     type: 'update',
     storeName: msg.storeName,
@@ -43,7 +43,7 @@ var handleUpdateMsg = function(msg, store, respond, broadcast) {
   });
 };
 
-var handleDeleteMsg = function(msg, store, respond, broadcast) {
+var handleDeleteMsg = function(clientData, store, msg, respond, broadcast) {
   var change = {
     type: 'delete',
     storeName: msg.storeName,
@@ -63,14 +63,14 @@ var handleDeleteMsg = function(msg, store, respond, broadcast) {
   });
 };
 
-var handleResetMsg = function(msg, store, respond, broadcast) {
+var handleResetMsg = function(clientData, store, msg, respond, broadcast) {
   store.resetChanges()
   .then(function() {
     respond({type: 'reset'});
   });
 };
 
-var sendChanges = function(msg, store, respond, broadcast) {
+var sendChanges = function(clientData, store, msg, respond, broadcast) {
   store.getChanges(msg).then(function(changesToSend) {
     respond({
       type: 'sending-changes',
@@ -108,12 +108,13 @@ function Server(opts) {
   server.resetHandlers();
   server.wss = new WebSocketServer({port: opts.port || 8080});
   server.wss.on('connection', function(ws) {
+    ws.clientData = {};
     ws.on('message', function(msg) {
       var data = JSON.parse(msg);
       if (data.type && data.type in server.handlers) {
         var s = send.bind(null, ws);
         var b = broadcast.bind(null, server.wss, ws);
-        var result = server.handlers[data.type](data, opts.store, s, b);
+        var result = server.handlers[data.type](ws.clientData, opts.store, data, s, b);
       }
     });
   });
