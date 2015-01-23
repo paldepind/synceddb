@@ -1175,6 +1175,69 @@ describe('SyncedDB', function() {
           done();
         });
       });
+      it('calls handle on reject message and skips record', function(done) {
+        var road = {length: 100, price: 1337};
+        var spy = sinon.stub().returns(false);
+        db.roads.handleReject = spy;
+        onSend = function(msg) {
+          var data = JSON.parse(msg);
+          assert(data.type === 'create');
+          if (data.record.length === 100) {
+            ws.onmessage({data: JSON.stringify({
+              type: 'reject',
+              storeName: data.storeName,
+              key: data.record.key,
+            })});
+          } else {
+            ws.onmessage({data: JSON.stringify({
+              type: 'ok', storeName: 'roads', key: data.record.key, newVersion: 0,
+            })});
+          }
+        };
+        db.roads.put(road).then(function() {
+          return db.pushToRemote('roads');
+        }).then(function() {
+          road.length = 110;
+          return db.roads.put(road);
+        }).then(function() {
+          return db.pushToRemote('roads');
+        }).then(function() {
+          assert(spy.calledOnce);
+          assert.equal(spy.getCall(0).args[0].length, 100);
+          assert.equal(spy.getCall(0).args[1].storeName, 'roads');
+          done();
+        });
+      });
+      it('calls handle on reject message and resends record', function(done) {
+        var road = {length: 100, price: 1337};
+        var spy = sinon.stub().returnsArg(0);
+        db.roads.handleReject = spy;
+        var msgCount = 0;
+        onSend = function(msg) {
+          msgCount++;
+          var data = JSON.parse(msg);
+          assert(data.type === 'create');
+          if (msgCount === 1) {
+            ws.onmessage({data: JSON.stringify({
+              type: 'reject',
+              storeName: data.storeName,
+              key: data.record.key,
+            })});
+          } else {
+            ws.onmessage({data: JSON.stringify({
+              type: 'ok', storeName: 'roads', key: data.record.key, newVersion: 0,
+            })});
+          }
+        };
+        db.roads.put(road).then(function() {
+          return db.pushToRemote('roads');
+        }).then(function() {
+          assert(spy.calledOnce);
+          assert.equal(spy.getCall(0).args[0].length, 100);
+          assert.equal(spy.getCall(0).args[1].storeName, 'roads');
+          done();
+        });
+      });
     });
     describe('continuous sync', function() {
       it('sends added records when syncing', function(done) {

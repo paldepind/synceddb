@@ -668,6 +668,20 @@ var handleIncomingMessageByType = {
       db.recordsToSync.add(-1);
     });
   },
+  'reject': function(db, ws, msg) {
+    var func = db.stores[msg.storeName].handleReject;
+    if (typeof func === 'function') {
+      db.stores[msg.storeName].get(msg.key).then(function(record) {
+        return func(record, msg);
+      }).then(function(record) {
+        record ? sendChangeToRemote(ws, msg.storeName, db.clientId, record)
+               : db.recordsToSync.add(-1); // Skip syncing record
+      });
+    } else {
+      // Stupid error
+      console.log('no stupid handler function!!!');
+    }
+  },
 };
 
 function handleIncomingMessage(db, ws, msg) {
