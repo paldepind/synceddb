@@ -6,9 +6,8 @@
     // AMD. Register as an anonymous module.
     define([], factory);
   } else if (typeof exports === 'object') {
-    // Node. Does not work with strict CommonJS, but
-    // only CommonJS-like environments that support module.exports,
-    // like Node.
+    // Node. Does not work with strict CommonJS, but only
+    // CommonJS-like environments that support module.exports like Node.
     module.exports = factory();
   } else {
     // Browser globals (root is window)
@@ -313,7 +312,7 @@ function doPutRecord(store, record) {
       });
     } else { // Add new record
       record.key = Math.random().toString(36);
-      addValToStore(store, record, 'LOCAL').then(resolve);
+      addRecToStore(store, record, 'LOCAL').then(resolve);
     }
   });
 }
@@ -373,7 +372,7 @@ function deleteFromStore(store, key, origin) {
 }
 
 var putValToStore = partial(insertValInStore, 'put');
-var addValToStore = partial(insertValInStore, 'add');
+var addRecToStore = partial(insertValInStore, 'add');
 
 var createKeyRange = function(r) {
   var gt   = 'gt' in r,
@@ -606,7 +605,7 @@ var handleIncomingMessageByType = {
   'create': function(db, ws, msg) {
     msg.record.changedSinceSync = 0;
     handleRemoteChange(db, msg.storeName, function(store, metaStore) {
-      addValToStore(store, msg.record, 'REMOTE')
+      addRecToStore(store, msg.record, 'REMOTE')
       .then(function() {
         updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
       });
@@ -660,11 +659,15 @@ var handleIncomingMessageByType = {
           record.changedSinceSync = 0;
           record.version = msg.newVersion;
           delete record.remoteOriginal;
+          if (msg.newKey) {
+            record.key = msg.newKey;
+            store.IDBStore.delete(msg.key);
+          }
           putValToStore(store, record, 'INTERNAL');
         }
       });
     }).then(function() {
-      db.stores[msg.storeName].emit('synced', record);
+      db.stores[msg.storeName].emit('synced', msg.key, record);
       db.recordsToSync.add(-1);
     });
   },

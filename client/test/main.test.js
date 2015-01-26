@@ -676,7 +676,7 @@ describe('SyncedDB', function() {
           return db.pushToRemote();
         }).then(function() {
           assert(spy.calledOnce);
-          assert.equal(spy.firstCall.args[0].price, 1337);
+          assert.equal(spy.firstCall.args[1].price, 1337);
           done();
         });
       });
@@ -752,6 +752,34 @@ describe('SyncedDB', function() {
         }).catch(function(el) {
           return db.pushToRemote();
         }).then(function(r) {
+          done();
+        });
+      });
+      it('handles new key from remote', function(done) {
+        var firstKey, newKey, road = {length: 100, price: 1337};
+        onSend = function(msg) {
+          var sent = JSON.parse(msg);
+          ws.onmessage({data: JSON.stringify({
+            type: 'ok',
+            storeName: 'roads',
+            key: sent.record.key,
+            newKey: 1,
+            newVersion: 0,
+          })});
+        };
+        db.roads.on('synced', function(key, record) {
+          assert.equal(key, firstKey);
+          assert.notEqual(key, record.key);
+          newKey = record.key;
+        });
+        db.roads.put(road)
+        .then(function(roadKey) {
+          firstKey = roadKey;
+          return db.pushToRemote();
+        }).then(function() {
+          return db.roads.get(newKey);
+        }).then(function(road) {
+          assert.equal(road.length, 100);
           done();
         });
       });
