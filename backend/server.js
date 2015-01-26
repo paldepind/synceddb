@@ -3,6 +3,7 @@ var WebSocketServer = require('ws').Server;
 
 var handleCreateMsg = function(clientData, store, msg, respond, broadcast) {
   msg.record.version = 0;
+  var originalKey = msg.record.key;
   var change = {
     type: 'create',
     storeName: msg.storeName,
@@ -10,13 +11,13 @@ var handleCreateMsg = function(clientData, store, msg, respond, broadcast) {
     key: msg.record.key,
     clientId: msg.clientId,
   };
-  store.saveChange(change)
-  .then(function() {
+  store.saveChange(change).then(function(res) {
     respond({
       type: 'ok',
       storeName: msg.storeName,
-      key: msg.record.key,
-      newVersion: msg.record.key,
+      key: originalKey,
+      newKey: res.newKey,
+      newVersion: 0,
     });
     broadcast(change);
   });
