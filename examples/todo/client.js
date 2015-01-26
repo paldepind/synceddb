@@ -29,6 +29,11 @@
       deleteTaskElm(e.record);
       console.log(e);
     });
+    db.tasks.on('synced', function(key, task) {
+      console.log(key, task);
+      var taskElm = document.getElementById('task-' + key);
+      taskElm.id = 'task-' + task.key;
+    });
     db.tasks.byCreation.getAll()
     .then(function(tasks) {
       tasks.forEach(createTaskElm);
@@ -41,8 +46,8 @@
       var taskElm = document.createElement('li');
       taskElm.id = 'task-' + task.key;
       taskElm.innerHTML = '<span>' + task.description + '</span><a class="delete">×</a>';
-      taskElm.addEventListener('click', toggleDone.bind(null, task));
-      taskElm.querySelector('.delete').addEventListener('click', deleteTask.bind(null, task));
+      taskElm.addEventListener('click', toggleDone);
+      taskElm.querySelector('.delete').addEventListener('click', deleteTask);
       taskElm.style.transform = 'scale(.5)';
       taskElm.style.marginBottom = '-2.6em';
       taskElm.style.opacity = '0';
@@ -77,15 +82,22 @@
       }, 200);
     }
 
-    function toggleDone(task, ev) {
-      task.finished = !task.finished;
-      db.tasks.put(task);
+    function toggleDone(ev) {
+      console.log(ev);
+      var key = parseInt(ev.target.id.slice(5));
+      db.tasks.get(key).then(function(task) {
+        task.finished = !task.finished;
+        db.tasks.put(task);
+      });
     }
 
-    function deleteTask(task, ev) {
+    function deleteTask(ev) {
+      var key = parseInt(ev.target.parentNode.id.slice(5));
+      console.log(ev.target);
+      console.log(key);
       ev.preventDefault();
       ev.cancelBubble = true;
-      db.tasks.delete(task.key);
+      db.tasks.delete(key);
     }
 
     document.getElementById('add-todo-form').addEventListener('submit', function(e) {
