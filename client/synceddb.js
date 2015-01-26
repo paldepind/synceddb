@@ -55,6 +55,30 @@ function isString(s) {
   return typeof s === 'string';
 }
 
+function isNum(n) {
+  return typeof n === 'number';
+}
+
+function isFunc(f) {
+  return typeof f === 'function';
+}
+
+function isUndef(x) {
+  return x === undefined;
+}
+
+function isKey(k) {
+  return isString(k) || isNum(k);
+}
+
+function extractKey(k) {
+  k = isKey(k) ? k
+    : isObject(k) && isKey(k.key) ? k.key
+    : undefined;
+  if (isUndef(k)) throw new TypeError(k + ' is not a valid key');
+  return k;
+}
+
 function Countdown(initial) {
   this.val = initial || 0;
 }
@@ -72,7 +96,7 @@ function SyncPromise(fn) {
 
 SyncPromise.prototype._resolve = function(val) {
   var self = this;
-  if (val && typeof val.then == 'function') {
+  if (val && isFunc(val.then)) {
     val.then(this._resolve.bind(this));
   } else {
     self.val = val;
@@ -92,12 +116,12 @@ SyncPromise.prototype.then = function(onFulfilled) {
   var self = this;
   return (new SyncPromise(function(resolve, reject) {
     if ('val' in self) {
-      resolve(typeof onFulfilled === 'function' ? onFulfilled(self.val)
-                                                : self.val);
+      resolve(isFunc(onFulfilled) ? onFulfilled(self.val)
+                                : self.val);
     } else {
       self._thenCbs.push(function(result) {
-        resolve(typeof onFulfilled === 'function' ? onFulfilled(result)
-                                                  : result);
+        resolve(isFunc(onFulfilled) ? onFulfilled(result)
+                                    : result);
       });
       self._catchCbs.push(function(reason) {
         reject(reason);
@@ -144,7 +168,7 @@ function WrappedSocket(url, protocol) {
   ws.onmessage = function(msg) {
     console.log('Message recieved');
     var data;
-    if (typeof msg.data === 'string') {
+    if (isString(msg.data)) {
       data = JSON.parse(msg.data);
     } else {
       data = msg.data;
@@ -236,7 +260,7 @@ function doGet(IDBStore, key, getDeleted) {
   return new SyncPromise(function(resolve, reject) {
     var req = IDBStore.get(key);
     req.onsuccess = function() {
-      if (req.result !== undefined &&
+      if (!isUndef(req.result) &&
           (!req.result.deleted || getDeleted)) {
         resolve(req.result);
       } else {
@@ -264,13 +288,7 @@ SDBObjectStore.prototype.delete = function(/* keys */) {
   var store = this;
   var args = toArray(arguments);
   return doInStoreTx('readwrite', store, function(tx, resolve, reject) {
-    var invalidKey;
-    var keys = args.map(function(key) {
-      return isString(key) ? key
-           : isObject(key) && isString(key.key) ? key.key
-           : (invalidKey = key);
-    });
-    if (invalidKey) reject(new TypeError(invalidKey + ' is not a valid key'));
+    var keys = args.map(extractKey);
     var recordsLeftToDelete = new Countdown(keys.length);
     recordsLeftToDelete.onZero = resolve;
     keys.forEach(function(key) {
@@ -302,7 +320,7 @@ function doInStoreTx(mode, store, cb) {
 function doPutRecord(store, record) {
   record.changedSinceSync = 1;
   return new SyncPromise(function(resolve, reject) {
-    if (record.key) { // Update existing record
+    if (!isUndef(record.key)) { // Update existing record
       doGet(store.IDBStore, record.key).then(function(oldRecord) {
         record.version = oldRecord.version;
         if (oldRecord.changedSinceSync === 0) {
@@ -361,7 +379,8 @@ function deleteFromStore(store, key, origin) {
         remoteOriginal: record.remoteOriginal || stripLocalMeta(copyRecord(record)),
       };
       store.changedRecords.push({type: 'delete', origin: origin, record: tombstone});
-      if (record.changedSinceSync === 1 && !record.remoteOriginal) {
+      if ((record.changedSinceSync === 1 && !record.remoteOriginal)
+          || origin === 'REMOTE') {
         var req = store.IDBStore.delete(key);
         req.onsuccess = resolve;
       } else {
@@ -388,7 +407,7 @@ var createKeyRange = function(r) {
 
 function callMigrationHooks(data, migrations, newV, curV) {
   while(curV++ < newV)
-    if (typeof migrations[curV] === 'function')
+    if (isFunc(migrations[curV]))
       migrations[curV](data.db, data.e);
 }
 
@@ -638,10 +657,10 @@ var handleIncomingMessageByType = {
           var local = stripLocalMeta(record);
           var remote = {deleted: true, key: msg.key};
           var resolved = db.stores[msg.storeName].handleConflict(original, local, remote);
-          resolved.deleted ? deleteFromStore(store, msg.key)
+          resolved.deleted ? deleteFromStore(store, msg.key, 'REMOTE')
                            : putValToStore(store, resolved, 'LOCAL');
         } else {
-          deleteFromStore(store, msg.key);
+          deleteFromStore(store, msg.key, 'REMOTE');
         }
       }).then(function() {
         updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
@@ -659,7 +678,7 @@ var handleIncomingMessageByType = {
           record.changedSinceSync = 0;
           record.version = msg.newVersion;
           delete record.remoteOriginal;
-          if (msg.newKey) {
+          if (isUndef(msg.newKey)) {
             record.key = msg.newKey;
             store.IDBStore.delete(msg.key);
           }
@@ -673,7 +692,7 @@ var handleIncomingMessageByType = {
   },
   'reject': function(db, ws, msg) {
     var func = db.stores[msg.storeName].handleReject;
-    if (typeof func === 'function') {
+    if (isFunc(func)) {
       db.stores[msg.storeName].get(msg.key).then(function(record) {
         return func(record, msg);
       }).then(function(record) {
