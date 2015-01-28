@@ -25,6 +25,7 @@
   },
   "homepage": "https://github.com/paldepind/synceddb",
   "dependencies": {
+    "bluebird": "^2.9.3",
     "pg": "^4.2.0"
   },
   "devDependencies": {

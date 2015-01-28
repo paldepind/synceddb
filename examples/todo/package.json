@@ -15,8 +15,8 @@
   "author": "Simon Friis Vindum",
   "license": "MIT",
   "dependencies": {
-    "synceddb-client": "0.0.1",
-    "synceddb-persistence-memory": "0.0.1",
-    "synceddb-server": "0.0.1"
+    "synceddb-client": "latest",
+    "synceddb-persistence-memory": "latest",
+    "synceddb-server": "latest"
   }
 }
