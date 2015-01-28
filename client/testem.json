@@ -7,10 +7,9 @@
   "serve_files": [
     "./bower_components/sinonjs/sinon.js",
     "./bower_components/node-assert/assert.js",
-    "./bower_components/dffptch/dist/dffptch-global.js",
-    "./bower_components/minivents-cuzzo/minivents.js",
-    "synceddb.js",
+    "./dist/synceddb-global.js",
     "test/*.test.js"
   ],
+  "before_tests": "./build.sh",
   "launch_in_dev": [ "firefox", "chromium" ]
 }

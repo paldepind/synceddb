@@ -1,13 +1,14 @@
 {
-  "name": "synceddb-persistence-postgres",
+  "name": "synceddb-server",
   "version": "0.0.1",
-  "description": "Persistence module for SyncedDB using PostgreSQL for storage",
-  "main": "index.js",
+  "description": "Library for implementing SyncedDB servers.",
+  "main": "server.js",
   "directories": {
     "test": "test"
   },
   "scripts": {
-    "test": "mocha"
+    "test": "mocha",
+    "start": "node server.js"
   },
   "repository": {
     "type": "git",
@@ -15,8 +16,8 @@
   },
   "keywords": [
     "synceddb",
-    "postgres",
-    "postgresql"
+    "server",
+    "backend"
   ],
   "author": "Simon Friis Vindum",
   "license": "MIT",
@@ -25,9 +26,10 @@
   },
   "homepage": "https://github.com/paldepind/synceddb",
   "dependencies": {
-    "pg": "^4.2.0"
+    "ws": "^0.7.0",
+    "xtend": "^4.0.0"
   },
   "devDependencies": {
-    "synceddb-persistence-tests": "0.0.1"
+    "mocha": "^2.0.1"
   }
 }

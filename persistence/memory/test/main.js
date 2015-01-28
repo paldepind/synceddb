@@ -1,4 +1,4 @@
 var MemoryPersistence = require('../index');
-var Tests = require('../../persistence-tests');
+var Tests = require('synceddb-persistence-tests');
 
 Tests.testPersistence(MemoryPersistence);

@@ -1,11 +1,8 @@
 {
-  "name": "synceddb-persistence-postgres",
+  "name": "synceddb-persistence-tests",
   "version": "0.0.1",
-  "description": "Persistence module for SyncedDB using PostgreSQL for storage",
+  "description": "Persistence test suite for SyncedDB persistence providers.",
   "main": "index.js",
-  "directories": {
-    "test": "test"
-  },
   "scripts": {
     "test": "mocha"
   },
@@ -15,8 +12,7 @@
   },
   "keywords": [
     "synceddb",
-    "postgres",
-    "postgresql"
+    "persistence"
   ],
   "author": "Simon Friis Vindum",
   "license": "MIT",
@@ -24,10 +20,7 @@
     "url": "https://github.com/paldepind/synceddb/issues"
   },
   "homepage": "https://github.com/paldepind/synceddb",
-  "dependencies": {
-    "pg": "^4.2.0"
-  },
   "devDependencies": {
-    "synceddb-persistence-tests": "0.0.1"
+    "mocha": "^2.0.1"
   }
 }

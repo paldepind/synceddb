@@ -1,7 +1,7 @@
 {
-  "name": "synceddb-persistence-postgres",
+  "name": "synceddb-persistence-memory",
   "version": "0.0.1",
-  "description": "Persistence module for SyncedDB using PostgreSQL for storage",
+  "description": "Persistence module for SyncedDB using memory for storage",
   "main": "index.js",
   "directories": {
     "test": "test"
@@ -15,8 +15,8 @@
   },
   "keywords": [
     "synceddb",
-    "postgres",
-    "postgresql"
+    "persistence",
+    "memory"
   ],
   "author": "Simon Friis Vindum",
   "license": "MIT",
@@ -25,7 +25,6 @@
   },
   "homepage": "https://github.com/paldepind/synceddb",
   "dependencies": {
-    "pg": "^4.2.0"
   },
   "devDependencies": {
     "synceddb-persistence-tests": "0.0.1"
