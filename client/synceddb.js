@@ -117,7 +117,7 @@ SyncPromise.prototype.then = function(onFulfilled) {
   return (new SyncPromise(function(resolve, reject) {
     if ('val' in self) {
       resolve(isFunc(onFulfilled) ? onFulfilled(self.val)
-                                : self.val);
+                                  : self.val);
     } else {
       self._thenCbs.push(function(result) {
         resolve(isFunc(onFulfilled) ? onFulfilled(result)
@@ -489,31 +489,29 @@ SDBDatabase.prototype.transaction = function(storeNames, mode, fn) {
        : mode === 'rw'   ? 'readwrite'
                          : mode;
   var db = this;
-  return db.then(function(res) {
-    return new Promise(function(resolve, reject) {
+  return new Promise(function(resolve, reject) {
+    db.then(function(res) {
       var tx = db.db.transaction(storeNames, mode);
       var stores = storeNames.map(function(s) {
         return (new SDBObjectStore(db, s, db[s].indexes, tx));
       });
-      tx.oncomplete = function() {
-        resolve();
-      };
+      tx.oncomplete = resolve;
       fn.apply(null, stores);
     });
   });
 };
 
 SDBDatabase.prototype.read = function() {
-  var args = toArray(arguments);
-  return this.transaction(args.slice(0, -1), 'r', args.slice(-1)[0]);
+  var args = toArray(arguments), fn = args.pop();
+  return this.transaction(args, 'r', fn);
 };
 
 SDBDatabase.prototype.write = function() {
-  var args = toArray(arguments);
-  return this.transaction(args.slice(0, -1), 'rw', args.slice(-1)[0]);
+  var args = toArray(arguments), fn = args.pop();
+  return this.transaction(args, 'rw', fn);
 };
 
-var findRecordsChangedSinceSync = function(db, storeNames) {
+var getRecordsChangedSinceSync = function(db, storeNames) {
   var records = [];
   return db.transaction(storeNames, 'r', function() {
     var stores = toArray(arguments);
@@ -624,8 +622,7 @@ var handleIncomingMessageByType = {
   'create': function(db, ws, msg) {
     msg.record.changedSinceSync = 0;
     handleRemoteChange(db, msg.storeName, function(store, metaStore) {
-      addRecToStore(store, msg.record, 'REMOTE')
-      .then(function() {
+      addRecToStore(store, msg.record, 'REMOTE').then(function() {
         updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
       });
     });
@@ -678,7 +675,7 @@ var handleIncomingMessageByType = {
           record.changedSinceSync = 0;
           record.version = msg.newVersion;
           delete record.remoteOriginal;
-          if (isUndef(msg.newKey)) {
+          if (!isUndef(msg.newKey)) {
             record.key = msg.newKey;
             store.IDBStore.delete(msg.key);
           }
@@ -692,17 +689,15 @@ var handleIncomingMessageByType = {
   },
   'reject': function(db, ws, msg) {
     var func = db.stores[msg.storeName].handleReject;
-    if (isFunc(func)) {
-      db.stores[msg.storeName].get(msg.key).then(function(record) {
-        return func(record, msg);
-      }).then(function(record) {
-        record ? sendChangeToRemote(ws, msg.storeName, db.clientId, record)
-               : db.recordsToSync.add(-1); // Skip syncing record
-      });
-    } else {
-      // Stupid error
-      console.log('no stupid handler function!!!');
+    if (!isFunc(func)) {
+      throw new Error('Reject message recieved from remote but no reject handler is supplied');
     }
+    db.stores[msg.storeName].get(msg.key).then(function(record) {
+      return func(record, msg);
+    }).then(function(record) {
+      record ? sendChangeToRemote(ws, msg.storeName, db.clientId, record)
+             : db.recordsToSync.add(-1); // Skip syncing record
+    });
   },
 };
 
@@ -722,7 +717,7 @@ function doPullFromRemote(ctx) {
 function doPushToRemote(ctx) {
   return new Promise(function(resolve, reject) {
     ctx.db.recordsToSync.onZero = partial(resolve, ctx);
-    findRecordsChangedSinceSync(ctx.db, ctx.storeNames)
+    getRecordsChangedSinceSync(ctx.db, ctx.storeNames)
     .then(function(records) {
       ctx.db.recordsToSync.add(records.length);
       records.forEach(function(res) {
