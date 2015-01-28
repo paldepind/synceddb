@@ -11,13 +11,14 @@ var handleCreateMsg = function(clientData, store, msg, respond, broadcast) {
     key: msg.record.key,
     clientId: msg.clientId,
   };
-  store.saveChange(change).then(function(res) {
+  store.saveChange(change).then(function(change) {
+    var newKey = originalKey !== change.key ? change.key : undefined;
     respond({
       type: 'ok',
       storeName: msg.storeName,
       key: originalKey,
-      newKey: res.newKey,
-      newVersion: 0,
+      newKey: newKey,
+      newVersion: change.version,
     });
     broadcast(change);
   });
@@ -32,13 +33,12 @@ var handleUpdateMsg = function(clientData, store, msg, respond, broadcast) {
     key: msg.key,
     version: msg.version + 1,
   };
-  store.saveChange(change)
-  .then(function() {
+  store.saveChange(change).then(function(change) {
     respond({
       type: 'ok',
       storeName: msg.storeName,
       key: msg.key,
-      newVersion: msg.version + 1,
+      newVersion: change.version,
     });
     broadcast(change);
   });
@@ -52,13 +52,12 @@ var handleDeleteMsg = function(clientData, store, msg, respond, broadcast) {
     key: msg.key,
     version: msg.version + 1,
   };
-  store.saveChange(change)
-  .then(function() {
+  store.saveChange(change).then(function(change) {
     respond({
       type: 'ok',
       storeName: msg.storeName,
       key: msg.key,
-      newVersion: msg.version + 1,
+      newVersion: change.version,
     });
     broadcast(change);
   });

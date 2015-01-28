@@ -34,20 +34,29 @@ pgPersistence.prototype.saveChange = function(change) {
   var client, newKey;
   return getClient(this).then(function(c) {
     client = c;
-    return (change.type === 'create') ? getNewKey(client) : undefined;
+    if (change.type === 'create') {
+      change.version = 0;
+      return getNewKey(client);
+    } else {
+      change.version++;
+      return undefined;
+    }
   }).then(function(nK) {
     newKey = nK;
     if (newKey !== undefined) {
       change.record.key = newKey;
       change.key = newKey;
     }
+    change.version = 0;
     return client.queryAsync(
-      'INSERT INTO synceddb_changes (key, storename, clientid, data) VALUES ($1, $2, $3, $4)',
+      'INSERT INTO synceddb_changes (key, storename, clientid, data)' +
+      'VALUES ($1, $2, $3, $4) RETURNING timestamp',
       [change.key, change.storeName, change.clientId, change]
     );
-  }).then(function() {
+  }).then(function(res) {
     client.close();
-    return {newKey: newKey};
+    change.timestamp = res.rows[0].timestamp;
+    return change;
   });
 };
 
@@ -62,7 +71,10 @@ pgPersistence.prototype.getChanges = function(req) {
     );
   }).then(function(result) {
     client.close();
-    return result.rows.map(function(r) { return r.data; });
+    return result.rows.map(function(r) {
+      r.data.timestamp = r.timestamp;
+      return r.data;
+    });
   });
 };
 

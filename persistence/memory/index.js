@@ -5,12 +5,13 @@ function MemoryPersistence() {
 }
 
 MemoryPersistence.prototype.saveChange = function(change) {
+  change.version = change.type === 'create' ? 0 : change.version + 1;
   if (!this.changes[change.storeName]) {
     this.changes[change.storeName] = [];
   }
   change.timestamp = this.changes[change.storeName].length;
   this.changes[change.storeName].push(change);
-  return Promise.resolve();
+  return Promise.resolve(change);
 };
 
 MemoryPersistence.prototype.getChanges = function(req) {
