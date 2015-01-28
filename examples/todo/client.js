@@ -83,8 +83,7 @@
     }
 
     function toggleDone(ev) {
-      console.log(ev);
-      var key = parseInt(ev.target.id.slice(5));
+      var key = ev.target.id.slice(5);
       db.tasks.get(key).then(function(task) {
         task.finished = !task.finished;
         db.tasks.put(task);
@@ -92,9 +91,7 @@
     }
 
     function deleteTask(ev) {
-      var key = parseInt(ev.target.parentNode.id.slice(5));
-      console.log(ev.target);
-      console.log(key);
+      var key = ev.target.parentNode.id.slice(5);
       ev.preventDefault();
       ev.cancelBubble = true;
       db.tasks.delete(key);

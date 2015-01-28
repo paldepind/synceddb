@@ -1,7 +1,7 @@
-var Server = require('../../backend/server').Server;
+var Server = require('synceddb-server').Server;
 
 // Persistence in memory
-var MemoryPersistence = require('../../persistence/memory');
+var MemoryPersistence = require('synceddb-persistence-memory');
 
 var server = new Server({
   port: 8080,

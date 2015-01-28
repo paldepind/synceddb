@@ -62,28 +62,30 @@
     }
     #add-todo-form {
       box-shadow: 0 0 3px rgba(0, 0, 0, 0.25);
+      position: relative;
+    }
+    button, input {
+      border: 0;
+      font-size: 1em;
     }
     button {
-      float: right;
+      position: absolute;
+      right: 0;
       color: white;
       background: green;
-      border: 0;
       padding: .5em 1em;
-      box-sizing: border-box;
       cursor: pointer;
     }
     input {
       width: 100%;
       display: block;
       box-sizing: border-box;
-      border: 0px solid black;
       background: white;
       padding: .5em;
     }
     </style>
-    <script src='../../client/synceddb.js'></script>
-    <script src='../../client/bower_components/minivents-cuzzo/minivents.js'></script>
-    <script src='../../client/bower_components/dffptch/dist/dffptch-global.js'></script>
+    <script src='../../client/dist/synceddb-global.js'></script>
+    <script src='./node_modules/synceddb-client/dist/synceddb-global.js'></script>
     <script src='client.js'></script>
   </head>
   <body>
