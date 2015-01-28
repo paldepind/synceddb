@@ -20,6 +20,17 @@ function testPersistence(Persistence) {
         assert.notEqual(change.version, undefined);
       });
     });
+    it('storing update change adds timestamp and new version', function() {
+      return store.saveChange({
+        type: 'update',
+        storeName: 'animals',
+        clientId: 1,
+        record: {name: 'Thumper', key: 1},
+      }).then(function(change) {
+        assert.notEqual(change.timestamp, undefined);
+        assert.notEqual(change.version, undefined);
+      });
+    });
     it('can save and get change to store', function() {
       return store.saveChange({
         type: 'create',
