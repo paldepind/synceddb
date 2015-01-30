@@ -2,7 +2,7 @@ var WebSocket = require('ws');
 var assert = require('assert');
 
 var Server = require('../server').Server;
-var MemoryPersistence = require('../persistence/memory');
+var MemoryPersistence = require('synceddb-persistence-memory');
 
 var server = new Server({
   port: 8080,
@@ -65,7 +65,9 @@ describe('Backend', function() {
       },
       function(data) {
         data2 = data;
-        assert.notEqual(data1.newVersion, data2.newVersion);
+        if (data1.newKey) {
+          assert.notEqual(data1.newKey, data2.newKey);
+        }
         return {
           type: 'get-changes',
           since: null,
@@ -81,6 +83,24 @@ describe('Backend', function() {
       },
       function(data) {
         assert.equal(data.record.name, 'Thumper');
+        done();
+      }
+    ]);
+  });
+  it('sends timestamps in ok response', function(done) {
+    var data1, data2;
+    socketConversation(ws, [
+      function() {
+        return {
+          type: 'create',
+          storeName: 'animals',
+          clientId: 'foo',
+          record: {name: 'Stampe', key: 1},
+        };
+      },
+      function(data) {
+        assert.equal(data.type, 'ok');
+        assert.notEqual(data.timestamp, undefined);
         done();
       }
     ]);

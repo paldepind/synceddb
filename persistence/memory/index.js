@@ -18,9 +18,7 @@ MemoryPersistence.prototype.getChanges = function(req) {
   var since = req.since === null ? -1 : req.since;
   var storeChanges = this.changes[req.storeName];
   if (storeChanges) {
-    var changes = storeChanges.slice(since + 1).filter(function(change) {
-      return req.clientId !== change.clientId;
-    });
+    var changes = storeChanges.slice(since + 1);
     return Promise.resolve(changes);
   } else {
     return Promise.resolve([]);

@@ -9,7 +9,6 @@ var handleCreateMsg = function(clientData, store, msg, respond, broadcast) {
     storeName: msg.storeName,
     record: msg.record,
     key: msg.record.key,
-    clientId: msg.clientId,
   };
   store.saveChange(change).then(function(change) {
     var newKey = originalKey !== change.key ? change.key : undefined;
@@ -18,6 +17,7 @@ var handleCreateMsg = function(clientData, store, msg, respond, broadcast) {
       storeName: msg.storeName,
       key: originalKey,
       newKey: newKey,
+      timestamp: change.timestamp,
       newVersion: change.version,
     });
     broadcast(change);
@@ -28,7 +28,6 @@ var handleUpdateMsg = function(clientData, store, msg, respond, broadcast) {
   var change = {
     type: 'update',
     storeName: msg.storeName,
-    clientId: msg.clientId,
     diff: msg.diff,
     key: msg.key,
     version: msg.version + 1,
@@ -38,6 +37,7 @@ var handleUpdateMsg = function(clientData, store, msg, respond, broadcast) {
       type: 'ok',
       storeName: msg.storeName,
       key: msg.key,
+      timestamp: change.timestamp,
       newVersion: change.version,
     });
     broadcast(change);
@@ -48,7 +48,6 @@ var handleDeleteMsg = function(clientData, store, msg, respond, broadcast) {
   var change = {
     type: 'delete',
     storeName: msg.storeName,
-    clientId: msg.clientId,
     key: msg.key,
     version: msg.version + 1,
   };
@@ -57,6 +56,7 @@ var handleDeleteMsg = function(clientData, store, msg, respond, broadcast) {
       type: 'ok',
       storeName: msg.storeName,
       key: msg.key,
+      timestamp: change.timestamp,
       newVersion: change.version,
     });
     broadcast(change);

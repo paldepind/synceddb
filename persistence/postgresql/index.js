@@ -23,7 +23,7 @@ function pgPersistence(opts) {
     client = c;
     return client.queryAsync(
       'CREATE TABLE IF NOT EXISTS synceddb_changes' +
-      '(timestamp serial, key integer, storename text, clientid text, data json)'
+      '(timestamp serial, key integer, storename text, data json)'
     );
   }).then(function() {
     client.close();
@@ -49,9 +49,9 @@ pgPersistence.prototype.saveChange = function(change) {
     }
     change.version = 0;
     return client.queryAsync(
-      'INSERT INTO synceddb_changes (key, storename, clientid, data)' +
-      'VALUES ($1, $2, $3, $4) RETURNING timestamp',
-      [change.key, change.storeName, change.clientId, change]
+      'INSERT INTO synceddb_changes (key, storename, data)' +
+      'VALUES ($1, $2, $3) RETURNING timestamp',
+      [change.key, change.storeName, change]
     );
   }).then(function(res) {
     client.close();
@@ -66,8 +66,8 @@ pgPersistence.prototype.getChanges = function(req) {
   return getClient(this).then(function(c) {
     client = c;
     return client.queryAsync(
-      'SELECT * FROM synceddb_changes WHERE storename = $1 AND timestamp > $2 AND clientid <> $3',
-      [req.storeName, since, req.clientId]
+      'SELECT * FROM synceddb_changes WHERE storename = $1 AND timestamp > $2',
+      [req.storeName, since]
     );
   }).then(function(result) {
     client.close();

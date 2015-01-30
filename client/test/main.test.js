@@ -526,12 +526,13 @@ describe('SyncedDB', function() {
     });
   });
   describe('Syncing', function() {
-    var db;
+    var db, timestamp;
     var globalWebSocket = window.WebSocket;
     var ws, sendSpy;
     var onSend = function() {};
     beforeEach(function() {
       onSend = function() {};
+      timestamp = 0;
       sendSpy = sinon.spy();
       window.WebSocket = function(url, protocol) {
         ws = {
@@ -593,6 +594,7 @@ describe('SyncedDB', function() {
             type: 'ok',
             storeName: 'roads',
             key: sent.record.key,
+            timestamp: timestamp++,
             newVersion: 0,
           })});
         };
@@ -616,6 +618,7 @@ describe('SyncedDB', function() {
             type: 'ok',
             storeName: sent.storeName,
             key: sent.record.key,
+            timestamp: timestamp++,
             newVersion: 0,
           })});
         };
@@ -642,6 +645,7 @@ describe('SyncedDB', function() {
             type: 'ok',
             storeName: 'roads',
             key: sent.record.key,
+            timestamp: timestamp++,
             newVersion: 0,
           })});
         };
@@ -668,6 +672,7 @@ describe('SyncedDB', function() {
             type: 'ok',
             storeName: 'roads',
             key: sent.record.key,
+            timestamp: timestamp++,
             newVersion: 0,
           })});
         };
@@ -688,6 +693,7 @@ describe('SyncedDB', function() {
             type: 'ok',
             storeName: 'roads',
             key: msg.key || msg.record.key,
+            timestamp: timestamp++,
             newVersion: (msg.version + 1) || 0,
           })});
         };
@@ -714,6 +720,7 @@ describe('SyncedDB', function() {
             type: 'ok',
             storeName: 'roads',
             key: msg.key || msg.record.key,
+            timestamp: timestamp++,
             newVersion: (msg.version + 1) || 0,
           })});
         };
@@ -739,11 +746,11 @@ describe('SyncedDB', function() {
             type: 'ok',
             storeName: 'roads',
             key: msg.key || msg.record.key,
+            timestamp: timestamp++,
             newVersion: (msg.version + 1) || 0,
           })});
         };
-        db.roads.put(road)
-        .then(function(key) {
+        db.roads.put(road).then(function(key) {
           return db.pushToRemote();
         }).then(function() {
           return db.roads.delete(road);
@@ -764,6 +771,7 @@ describe('SyncedDB', function() {
             storeName: 'roads',
             key: sent.record.key,
             newKey: 1,
+            timestamp: timestamp++,
             newVersion: 0,
           })});
         };
@@ -772,14 +780,44 @@ describe('SyncedDB', function() {
           assert.notEqual(key, record.key);
           newKey = record.key;
         });
-        db.roads.put(road)
-        .then(function(roadKey) {
+        db.roads.put(road).then(function(roadKey) {
           firstKey = roadKey;
           return db.pushToRemote();
         }).then(function() {
           return db.roads.get(newKey);
         }).then(function(road) {
           assert.equal(road.length, 100);
+          done();
+        });
+      });
+      it.only('updates syncedTo on `ok` message', function(done) {
+        var secondMsg, road = {length: 100, price: 1337};
+        onSend = function(msg) {
+          var sent = JSON.parse(msg);
+          if (sent.type === 'create') {
+            ws.onmessage({data: JSON.stringify({
+              type: 'ok',
+              storeName: 'roads',
+              key: sent.record.key,
+              timestamp: 8,
+              newVersion: 0,
+            })});
+          } else {
+            secondMsg = sent;
+            ws.onmessage({data: JSON.stringify({
+              type: 'sending-changes',
+              nrOfRecordsToSync: 0
+            })});
+          }
+        };
+        db.roads.put(road).then(function(roadId) {
+          return db.pushToRemote();
+        }).then(function() {
+          console.log('done push');
+          return db.pullFromRemote('roads');
+        }).then(function() {
+          console.log(secondMsg);
+          assert.equal(secondMsg.since, 8);
           done();
         });
       });
@@ -887,6 +925,7 @@ describe('SyncedDB', function() {
               type: 'ok',
               storeName: 'roads',
               key: msg.record.key,
+              timestamp: timestamp++,
               newVersion: 0,
             })});
           } else {
@@ -927,6 +966,7 @@ describe('SyncedDB', function() {
               type: 'ok',
               storeName: 'roads',
               key: msg.record.key,
+              timestamp: timestamp++,
               newVersion: 0,
             })});
           } else {
@@ -967,12 +1007,14 @@ describe('SyncedDB', function() {
               type: 'ok',
               storeName: 'roads',
               key: msg.record.key,
+              timestamp: timestamp++,
               newVersion: 0,
             })});
           } else if (msg.type === 'update') {
             ws.onmessage({data: JSON.stringify({
               type: 'ok',
               storeName: 'roads',
+              timestamp: timestamp++,
               key: msg.key,
             })});
           } else {
@@ -1023,6 +1065,7 @@ describe('SyncedDB', function() {
               type: 'ok',
               storeName: 'roads',
               key: msg.record.key,
+              timestamp: timestamp++,
               newVersion: 0,
             })});
           } else {
@@ -1072,6 +1115,7 @@ describe('SyncedDB', function() {
               type: 'ok',
               storeName: 'roads',
               key: msg.record.key,
+              timestamp: timestamp++,
               newVersion: 0,
             })});
           } else {
@@ -1218,7 +1262,7 @@ describe('SyncedDB', function() {
             })});
           } else {
             ws.onmessage({data: JSON.stringify({
-              type: 'ok', storeName: 'roads', key: data.record.key, newVersion: 0,
+              type: 'ok', storeName: 'roads', key: data.record.key, newVersion: 0, timestamp: timestamp++,
             })});
           }
         };
@@ -1253,7 +1297,7 @@ describe('SyncedDB', function() {
             })});
           } else {
             ws.onmessage({data: JSON.stringify({
-              type: 'ok', storeName: 'roads', key: data.record.key, newVersion: 0,
+              type: 'ok', storeName: 'roads', key: data.record.key, newVersion: 0, timestamp: timestamp++,
             })});
           }
         };
@@ -1280,6 +1324,7 @@ describe('SyncedDB', function() {
             ws.onmessage({data: JSON.stringify({
               type: 'ok',
               storeName: 'animals',
+              timestamp: timestamp++,
               key: data.record.key,
             })});
           }
@@ -1307,6 +1352,7 @@ describe('SyncedDB', function() {
               type: 'ok',
               storeName: 'animals',
               key: msg.key || msg.record.key,
+              timestamp: timestamp++,
               newVersion: (msg.version + 1) || 0,
             })});
           }
@@ -1346,6 +1392,7 @@ describe('SyncedDB', function() {
               type: 'ok',
               storeName: 'animals',
               key: msg.key || msg.record.key,
+              timestamp: timestamp++,
               newVersion: (msg.version + 1) || 0,
             })});
           }

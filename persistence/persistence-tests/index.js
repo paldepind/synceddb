@@ -49,29 +49,6 @@ function testPersistence(Persistence) {
         assert.equal(result[0].record.name, 'Thumper');
       });
     });
-    it('only get changes from other clients', function() {
-      return store.saveChange({
-        type: 'create',
-        storeName: 'animals',
-        clientId: 1,
-        record: {name: 'Thumper', key: 1},
-      }).then(function() {
-        return store.saveChange({
-          type: 'create',
-          storeName: 'animals',
-          clientId: 2,
-          record: {name: 'Cuddley', key: 2},
-        });
-      }).then(function() {
-        return store.getChanges({
-          since: null,
-          clientId: 2,
-          storeName: 'animals',
-        });
-      }).then(function(result) {
-        assert.equal(result.length, 1);
-      });
-    });
   });
 }
 

@@ -422,7 +422,7 @@ function emitChangeEvents(changes, dbStore) {
       origin: change.origin
     });
     if (dbStore.db.continuousWs && change.origin !== 'REMOTE') {
-      sendChangeToRemote(dbStore.db.continuousWs, dbStore.name, dbStore.db.clientId, change.record);
+      sendChangeToRemote(dbStore.db.continuousWs, dbStore.name, change.record);
     }
   });
 }
@@ -491,7 +491,7 @@ var handleMigrations = function(version, storeDeclaration, migrationHooks, e) {
     metaStore = req.transaction.objectStore('sdbMetaData');
   } else {
     metaStore = db.createObjectStore('sdbMetaData', {keyPath: 'key'});
-    metaStore.put({key: 'meta', clientId: undefined});
+    metaStore.put({key: 'meta'});
   }
   eachKeyVal(storeDeclaration, function(storeName, indexes) {
     var store;
@@ -596,17 +596,16 @@ var getRecordsChangedSinceSync = function(db, storeNames) {
   }).then(function() { return records; });
 };
 
-var createMsg = function(storeName, clientId, record) {
+var createMsg = function(storeName, record) {
   stripLocalMeta(record);
   return JSON.stringify({
     type: 'create',
     storeName: storeName,
-    clientId: clientId,
     record: record,
   });
 };
 
-var updateMsg = function(storeName, clientId, record) {
+var updateMsg = function(storeName, record) {
   var remoteOriginal = record.remoteOriginal;
   delete record.remoteOriginal; // Noise free diff
   remoteOriginal.version = record.version;
@@ -616,28 +615,26 @@ var updateMsg = function(storeName, clientId, record) {
   return JSON.stringify({
     type: 'update',
     storeName: storeName,
-    clientId: clientId,
     version: record.version,
     diff: diff,
     key: record.key,
   });
 };
 
-var deleteMsg = function(storeName, clientId, record) {
+var deleteMsg = function(storeName, record) {
   return JSON.stringify({
     type: 'delete',
     storeName: storeName,
     key: record.key,
     version: record.version,
-    clientId: clientId,
   });
 };
 
-function sendChangeToRemote(ws, storeName, clientId, record) {
+function sendChangeToRemote(ws, storeName, record) {
   var msgFunc = record.deleted        ? deleteMsg
               : record.remoteOriginal ? updateMsg
                                       : createMsg;
-  ws.send(msgFunc(storeName, clientId, record));
+  ws.send(msgFunc(storeName, record));
 }
 
 function updateStoreSyncedTo(metaStore, storeName, time) {
@@ -647,6 +644,7 @@ function updateStoreSyncedTo(metaStore, storeName, time) {
   });
 }
 
+/*
 function getClientId(db, ws) {
   if (db.clientId) {
     return Promise.resolve(db.clientId);
@@ -667,20 +665,20 @@ function getClientId(db, ws) {
     });
   }
 }
+*/
 
-function requestChangesToStore(db, ws, clientId, storeName) {
+function requestChangesToStore(db, ws, storeName) {
   db.sdbMetaData.get(storeName + 'Meta').then(function(storeMeta) {
     ws.send({
       type: 'get-changes',
       storeName: storeName,
-      clientId: clientId,
       since: storeMeta.syncedTo,
     });
   });
 }
 
 function handleRemoteChange(db, storeName, cb) {
-  db.write(storeName, 'sdbMetaData', cb).then(function() {
+  return db.write(storeName, 'sdbMetaData', cb).then(function() {
     db.changesLeftFromRemote.add(-1);
   });
 }
@@ -737,7 +735,7 @@ var handleIncomingMessageByType = {
   },
   'ok': function(db, ws, msg) {
     var record;
-    return db.write(msg.storeName, function(store) {
+    db.write(msg.storeName, 'sdbMetaData', function(store, metaStore) {
       doGet(store.IDBStore, msg.key, true).then(function(rec) {
         record = rec;
         if (record.deleted) {
@@ -752,6 +750,8 @@ var handleIncomingMessageByType = {
           }
           putValToStore(store, record, 'INTERNAL');
         }
+      }).then(function() {
+        updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
       });
     }).then(function() {
       db.stores[msg.storeName].emit('synced', msg.key, record);
@@ -766,7 +766,7 @@ var handleIncomingMessageByType = {
     db.stores[msg.storeName].get(msg.key).then(function(record) {
       return func(record, msg);
     }).then(function(record) {
-      record ? sendChangeToRemote(ws, msg.storeName, db.clientId, record)
+      record ? sendChangeToRemote(ws, msg.storeName, record)
              : db.recordsToSync.add(-1); // Skip syncing record
     });
   },
@@ -781,7 +781,7 @@ function handleIncomingMessage(db, ws, msg) {
 function doPullFromRemote(ctx) {
   return new Promise(function(resolve, reject) {
     ctx.db.changesLeftFromRemote.onZero = partial(resolve, ctx);
-    ctx.storeNames.map(partial(requestChangesToStore, ctx.db, ctx.ws, ctx.clientId));
+    ctx.storeNames.map(partial(requestChangesToStore, ctx.db, ctx.ws));
   });
 }
 
@@ -792,7 +792,7 @@ function doPushToRemote(ctx) {
     .then(function(records) {
       ctx.db.recordsToSync.add(records.length);
       records.forEach(function(res) {
-        sendChangeToRemote(ctx.ws, res.storeName, ctx.clientId, res.record);
+        sendChangeToRemote(ctx.ws, res.storeName, res.record);
       });
     });
   });
@@ -804,13 +804,11 @@ function getSyncContext(db, storeNamesArgs) {
   }
   db.syncing = true;
   var storeNames = storeNamesArgs.length ? toArray(storeNamesArgs) : Object.keys(db.stores);
-  return getClientId(db).then(function(clientId) {
-    return new Promise(function(resolve, reject) {
-      var ws = new WrappedSocket('ws://' + db.remote);
-      ws.on('message', partial(handleIncomingMessage, db, ws));
-      ws.on('open', function() {
-        resolve({db: db, storeNames: storeNames, clientId: clientId, ws: ws});
-      });
+  return new Promise(function(resolve, reject) {
+    var ws = new WrappedSocket('ws://' + db.remote);
+    ws.on('message', partial(handleIncomingMessage, db, ws));
+    ws.on('open', function() {
+      resolve({db: db, storeNames: storeNames, ws: ws});
     });
   });
 }
