@@ -122,7 +122,7 @@ that changes are synchronized instantly between the
 connected clients.
 
 The example server uses in memory storage. Thus if you restart it
-make sure to wipe client site data as well by running 
+make sure to wipe client site data as well by running
 `indexedDB.deleteDatabase('todoApp');` in the browsers console.
 
 API documentation
@@ -184,7 +184,7 @@ __Properties__
 * `db` - the raw IDBDatabase associated with the database
 * `version` - the version of the database
 * `remote` - the address to which the database should sync
-* `stores` - an array of the SDBIndexes belonging to the store
+* `stores` - an object of the SDBIndexes belonging to the store
 * `messages` - an event emitter which emits custom events from the server
 
 Furthermore the databases stores is directly attached to the database object as long
@@ -196,6 +196,13 @@ through indexes.
 
 __Properties__
 
+* `name`(string) - the name of the store
+* `db`(SDBDatabase) - the database the store belongs to
+* `indexes` - an object of the indexes in the store
+
+Furthermore the stores indexes is directly attached to the store object as long
+as they don't collide with any existing properties.
+
 ## SDBIndex
 
 __Properties__
@@ -203,3 +210,29 @@ __Properties__
 Database declarations
 =====================
 
+IndexedDB provides a very imperiative way of handle database upgrades. Through
+migration callbacks SyncedDB makes imperiative upgrades possible as well,
+albeit with a more convenient form. 
+
+But almost all types of database upgrades can be declaratively handled with SyncedDBs
+store declaration format. The declaration consists of an object where each property
+name corresponds to a store and where the values are arrays describing the indexes
+the store should contain.
+
+Whenever the database is upgraded SyncedDB makes shure that all the stores and
+indexes exists and creates them if they don't.
+
+__Example__
+```
+stores = {
+  employees: { // one store named 'employees'
+    ['byFirstName', 'firstName'], // one index named 'byFirstname' with the key path 'firstName'
+    ['byLastName', 'lastName'],
+    ['byEmail', 'email', {unique: true}] // an index with the unique options set to true
+  },
+  products: { // one store named 'products'
+    ['byName', name, {unique: true}],
+    ['byEmployee', 'responsibleEmployees', {multiEntry: true}] // an index with the multi entry option set
+  },
+};
+```
