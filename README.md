@@ -20,15 +20,30 @@ code as if everything was stored offline. Then plug in a remote backend and
 SyncedDB takes care of synchronizing the local database to the server and
 between clients.
 
-What makes it different
------------------------
-SyncedDB is a lightweight layer on top of IndexedDB. Some libraries caters to
-multiple storage backends and thus ends up with a limited feature set to
-support the lowest common denomenator (think localForage). Other implements a
-new database on top of the browsers native storage facilities (like PouchDB).
-This highly increases complexity and reduces performance. By being a small
-wrapper around IndexedDB SyncedDB gains some of its key features: simplicity,
-power and performance.
+What
+----
+SyncedDB was built with the following design goal: Be as simple as possible while
+still providing all the features and flexibility necessary to easily create
+efficient and secure real-time synchronizing web applications that works offline.
+
+SyncedDB is a lightweight layer on top of IndexedDB. It strips away all the
+boilerplate that the IndexedDB API requires by introducing implicit transactions,
+convenience methods and promises for all asynchronous operations.
+
+Server side SyncedDB stores a list of changes that clients can request/subscribe
+and post/publish to. The SyncedDB client communicates with the backend through
+WebSockets to achieve synchronization in real time. Furthermore the client provides
+elegant conflict handling and events for reacting to changes published from the 
+server.
+
+How is it different
+-------------------
+Some libraries caters to multiple storage backends and thus ends up with a
+limited feature set to support the lowest common denomenator (think
+localForage). Other implements a new database on top of the browsers native
+storage facilities (like PouchDB). This highly increases complexity and
+reduces performance. By being a small wrapper around IndexedDB SyncedDB gains
+some of its key features: simplicity, power and performance.
 
 The SyncedDB backend was designed to be as flexible as possible. Users can
 easily plug in any storage option they want, create custom message handlers at
@@ -42,7 +57,7 @@ SyncedDB is still under development. Expect rough edges.
 Main features
 --------
 * No new abstractions on top of IndexedDB. It exposes the same
-  raw power and performane — just through a significantly more convenient API.
+  raw power and performane but through a significantly more convenient API.
 * Compact declarative store and index definitions with automatic upgrades.
 * Uses promises for all async operations — even inside IndexedDB transactions
 * Synchronizes data through WebSockets and sends only modifications to records
@@ -122,10 +137,10 @@ that changes are synchronized instantly between the
 connected clients.
 
 The example server uses in memory storage. Thus if you restart it
-make sure to wipe client site data as well by running
+make sure to wipe client side data as well by running
 `indexedDB.deleteDatabase('todoApp');` in the browsers console.
 
-API documentation
+Client API documentation
 -----------------
 Beware, the documentation is in very early stages.
 
@@ -135,11 +150,11 @@ Opens a new or existing database.
 __Arguments__
 
 * `options` (object): The options object is an object with the following properties
-  * `name` - the name of the database to open.
-  * `version` - the version of the database to open.
-  * `stores` - An object declaring the stores in the database and their indexes.
-  * [`remote`] - An URL specifying the location of the remote to which the client should sync.
-  * [`migrations`] - An object with keys matching callbacks to execute when the database is upgraded.
+  * `name` (string) - the name of the database to open.
+  * `version` (number) - the version of the database to open.
+  * `stores` (object) - An object declaring the stores in the database and their indexes.
+  * [`remote`] (string) - An URL specifying the location of the remote to which the client should sync.
+  * [`migrations`] (object) - An object with keys matching callbacks to execute when the database is upgraded.
 
 __Returns__
 
@@ -147,7 +162,7 @@ __Returns__
 
 __Example__
 
-```
+```javascript
 var db = syncedDB.open({
   name: 'mydb',
   version: 3,
@@ -178,6 +193,11 @@ var db = syncedDB.open({
 Provides easy access to the stores it contains and their indexes.
 It provides means to opening transactions on the database. 
 
+The database is also a thenable that is resolved when the database has been successfully
+openend and rejected if the opening fails.
+
+SDBDatabase is an event emitter.
+
 __Properties__
 
 * `name` - the name of the database
@@ -189,6 +209,39 @@ __Properties__
 
 Furthermore the databases stores is directly attached to the database object as long
 as they don't collide with any existing properties.
+
+__Events__
+
+| Name             | Description
+| `sync-initiated` |  |
+
+## SDBDatabase#transaction
+Opens a transaction on the database in either readonly or readwrite mode and with
+including a specified list of stores.
+
+The callback is passed a number of SDBStores matching the parameter `storeNames`.
+
+__Arguments__
+
+* `storeNames` (array): An array of strings naming the stores the transaction should contain.
+* `mode` (string): A string describing the mode of the transaciton.
+* `callback` (function): A function that should be carried out inside the transaction.
+
+__Returns__
+
+A promise that is resolved when the transaction finishes successfully and rejects if an
+error happens inside the transaction.
+
+__Example__
+
+```
+db.transaction(['orders', 'employees'], 'read', function(orders, employees) {
+  // do stuff in transaction
+}).then(function() {
+  // transaction finished successfully
+});
+
+```
 
 ## SDBStore
 Gives easy access to querying the records it contains, both with primary keys and
@@ -203,9 +256,170 @@ __Properties__
 Furthermore the stores indexes is directly attached to the store object as long
 as they don't collide with any existing properties.
 
+__Events__
+
+| Name     | Description          |
+|----------+----------------------|
+| `create` | A record has been created. Event handler is passed a change event |
+| `update` | A record has been updated. Event handler is passed a change event |
+| `delete` | A record has been deleted. Event handler is passed a change event |
+| `synced` | A record has been synced to the remote. Event handler is passed the key of the record and the record |
+
+## SDBStore#get
+Get a record from a store by key. If the store is accessed outside of a transaction
+a transaction will implicitly be acquired.
+
+__Arguments__
+
+* `key`... (string|number) - a primary key of a record
+
+__Returns__
+
+A promise resolved with a single record in case only a single key was passed or with
+an array of records if several keys was passed. The promise rejects if the key cannot
+be found.
+
+__Example__
+
+```javascript
+db.products.get(36).then(function(product) {
+  // do something with the product with the primary key 36
+}).reject(function(err) {
+  if (err.type === 'KeyNotFoundError') {
+    // no record exists with the key 36
+  }
+});
+
+db.products.get(fooId, barId).then(function(foo, bar) {
+  // do something with the product having the primary key 36
+});
+```
+
+## SDBStore#put
+Add or insert one or more records into a store. If the store is accessed
+outside of a transaction a transaction will implicitly be acquired.
+
+__Arguments__
+
+* `record`... (object) - a record as an object
+
+__Returns__
+
+A promise resolved with a single key in case only a single record was passed or
+with an array of keys if several records was passed.
+
+__Example__
+
+```javascript
+var rabbit = {
+  type: 'rabbit',
+  name: 'Thumper',
+  color: 'grey'
+};
+db.animals.put(rabbit).then(function(key) {
+  // record has been created
+  assert.equal(rabbit.key, key);
+});
+```
+
+## SDBStore#delete
+Delete a record from a store by key or by a record with. If the store is
+accessed outside of a transaction a transaction will implicitly be acquired.
+
+__Arguments__
+
+* `key`... (string|number|object) - a primary key of a record or an object with a key property
+
+__Returns__
+
+A promise resolved when all records has been successfully deleted. 
+
+__Example__
+
+```javascript
+db.employees.delete(12).then(function() {
+  // employee with key 12 deleted
+});
+
+var newAnimal = {type: 'dog', age: 17, name: 'Sally'};
+db.animals.put(newAnimal).then(function(newKey) {
+  // animal has been created
+  return db.animals.delete(newKey);
+}).then(function() {
+  // animal has been deleted again
+});
+```
+
 ## SDBIndex
 
+An object representing an index in an object store. It gives access to querying
+the records in the story by the specific index.
+
 __Properties__
+
+* `name`(SDBDatabase) - name of the index
+* `db`(SDBDatabase) - database the index belongs to
+* `store`(SDBStore) - store the index belongs to
+
+## SDBIndex#get
+Get a record from a store by the value of a key path. If the index is accessed
+outside of a transaction a transaction will implicitly be acquired.
+
+__Arguments__
+
+* `value`... (string|number|boolean|object|array) - value to match against the
+  value at the records key path
+
+__Returns__
+
+A promise resolved with an array of all records that matched one of the
+values queried for. If no matching records was found an empty array will
+be returned.
+
+__Example__
+
+```javascript
+db.products.byLocation.get('south', 'north').then(function(products) {
+  // a producs whose location is either 'south' or 'north'
+});
+```
+
+## SDBIndex#getAll
+Get all records in the store orderded by the key path of the index.
+
+__Arguments__
+None.
+
+__Returns__
+And array of all records in the store.
+
+__Example__
+```javascript
+db.products.byValue.getAll().then(function(records) {
+  // all records sorted with the lowest value first
+});
+```
+
+## SDBIndex#inRange
+
+__Arguments__
+* `range`... (object) - a range to query for
+
+__Returns__
+A promise resolved with an array of all records that are contained in one
+of the ranges queried for. If no matching records was found an empty array will
+be returned.
+
+__Example__
+```javascript
+db.product.byValue.getInRange({gt: 100, lte: 200}).then(function(products) {
+  // all products where value is in the interval ]100;200]
+});
+
+db.product.byValue.getInRange({lte: 100}).then(function(products) {
+  // all products where value is <= 100
+});
+```
 
 Database declarations
 =====================
@@ -236,3 +450,9 @@ stores = {
   },
 };
 ```
+
+Events
+======
+
+SDBDatabses and SDBStores are event emitters. These objects can publish events and you
+can register event listeners to them.
