@@ -641,29 +641,6 @@ function updateStoreSyncedTo(metaStore, storeName, time) {
   });
 }
 
-/*
-function getClientId(db, ws) {
-  if (db.clientId) {
-    return Promise.resolve(db.clientId);
-  } else {
-    return db.sdbMetaData.get('meta').then(function(meta) {
-      if (meta.clientId) {
-        db.clientId = meta.clientId;
-        return meta.clientId;
-      } else {
-        meta.clientId = Math.random().toString(36); // FIXME
-        return db.write('sdbMetaData', function(sdbMetaData) {
-          putValToStore(sdbMetaData, meta, 'INTERNAL');
-        }).then(function() {
-          db.clientId = meta.clientId;
-          return meta.clientId;
-        });
-      }
-    });
-  }
-}
-*/
-
 function requestChangesToStore(db, ws, storeName) {
   db.sdbMetaData.get(storeName + 'Meta').then(function(storeMeta) {
     ws.send({

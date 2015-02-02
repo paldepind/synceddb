@@ -790,7 +790,7 @@ describe('SyncedDB', function() {
           done();
         });
       });
-      it.only('updates syncedTo on `ok` message', function(done) {
+      it('updates syncedTo on `ok` message', function(done) {
         var secondMsg, road = {length: 100, price: 1337};
         onSend = function(msg) {
           var sent = JSON.parse(msg);
