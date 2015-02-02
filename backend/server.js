@@ -131,4 +131,4 @@ Server.prototype.close = function() {
   this.wss.close();
 };
 
-exports.Server = Server;
+module.exports = Server;

@@ -1,7 +1,7 @@
 var WebSocket = require('ws');
 var assert = require('assert');
 
-var Server = require('../server').Server;
+var Server = require('../server');
 var MemoryPersistence = require('../../persistence/memory');
 
 var server = new Server({
