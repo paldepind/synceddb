@@ -2,7 +2,7 @@ var WebSocket = require('ws');
 var assert = require('assert');
 
 var Server = require('../server').Server;
-var MemoryPersistence = require('synceddb-persistence-memory');
+var MemoryPersistence = require('../../persistence/memory');
 
 var server = new Server({
   port: 8080,
@@ -265,5 +265,42 @@ describe('Backend', function() {
         done();
       }
     ]);
+  });
+  it('only publish changes after changes has been requested', function(done) {
+    var ws2 = new WebSocket('ws://localhost:8080');
+    var ws2MsgCount = 0, wsMsgCount = 0;
+    ws.onmessage = function(msg) {
+      wsMsgCount++;
+      if (wsMsgCount === 1) {
+        var data = JSON.parse(msg.data);
+        assert.equal(data.type, 'sending-changes');
+        assert.equal(data.nrOfRecordsToSync, 2);
+      } else if (wsMsgCount === 3) {
+        done();
+      }
+    };
+    ws2.onmessage = function() {
+      ws2MsgCount++;
+      if (ws2MsgCount === 2) {
+        assert.equal(wsMsgCount, 0);
+        ws.send(JSON.stringify({
+          type: 'get-changes',
+          since: null,
+          storeName: 'animals',
+        }));
+      }
+    };
+    ws2.onopen = function() {
+      ws2.send(JSON.stringify({
+        type: 'create',
+        storeName: 'animals',
+        record: {name: 'Stampe', key: 1},
+      }));
+      ws2.send(JSON.stringify({
+        type: 'create',
+        storeName: 'animals',
+        record: {name: 'Thumper', key: 2},
+      }));
+    };
   });
 });

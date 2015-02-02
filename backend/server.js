@@ -71,6 +71,7 @@ var handleResetMsg = function(clientData, store, msg, respond, broadcast) {
 };
 
 var sendChanges = function(clientData, store, msg, respond, broadcast) {
+  clientData.changesRequested = true;
   store.getChanges(msg).then(function(changesToSend) {
     respond({
       type: 'sending-changes',
@@ -97,7 +98,7 @@ function send(ws, msg) {
 function broadcast(wss, ws, msg) {
   var string = JSON.stringify(msg);
   for(var i in wss.clients) {
-    if (wss.clients[i] !== ws) {
+    if (wss.clients[i] !== ws && ws.clientData.changesRequested === true) {
       wss.clients[i].send(string);
     }
   }
