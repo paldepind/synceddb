@@ -76,6 +76,9 @@ Major missing features
 
 Example
 -------
+
+__Client__
+
 ```javascript
 var stores = {
   tasks: [ // One store named 'tasks'
@@ -109,6 +112,23 @@ db.tasks.on('add', function(e) { // A new task element pushed from remote
 // push and pull changes in real time
 db.syncContinuously('tasks');
 ```
+
+__Server__
+
+```
+var Server = require('synceddb-server');
+
+// Persistence with PostreSQL
+var pgPersistence = require('synceddb-persistence-postgres');
+
+var server = new Server({
+  port: 8080,
+  store: new pgPersistence({
+    conString: 'postgres://postgres@localhost/synceddb',
+  }),
+});
+```
+
 [See the entire example including server code here]
 (https://github.com/paldepind/synceddb/tree/master/examples/todo)
 
@@ -140,11 +160,14 @@ The example server uses in memory storage. Thus if you restart it
 make sure to wipe client side data as well by running
 `indexedDB.deleteDatabase('todoApp');` in the browsers console.
 
-Client API documentation
+API documentation
 -----------------
 Beware, the documentation is in very early stages.
 
-## syncedDB.open(options)
+Client API documentation
+========================
+
+### syncedDB.open(options)
 Opens a new or existing database.
 
 __Arguments__
@@ -189,7 +212,7 @@ var db = syncedDB.open({
 });
 ```
 
-## SDBDatabase
+### SDBDatabase
 Provides easy access to the stores it contains and their indexes.
 It provides means to opening transactions on the database. 
 
@@ -215,7 +238,7 @@ __Events__
 | Name             | Description
 | `sync-initiated` |  |
 
-## SDBDatabase#transaction
+### SDBDatabase#transaction
 Opens a transaction on the database in either readonly or readwrite mode and with
 including a specified list of stores.
 
@@ -243,7 +266,7 @@ db.transaction(['orders', 'employees'], 'read', function(orders, employees) {
 
 ```
 
-## SDBStore
+### SDBStore
 Gives easy access to querying the records it contains, both with primary keys and
 through indexes.
 
@@ -258,14 +281,14 @@ as they don't collide with any existing properties.
 
 __Events__
 
-| Name     | Description          |
-|----------+----------------------|
-| `create` | A record has been created. Event handler is passed a change event |
-| `update` | A record has been updated. Event handler is passed a change event |
-| `delete` | A record has been deleted. Event handler is passed a change event |
-| `synced` | A record has been synced to the remote. Event handler is passed the key of the record and the record |
+Name     | Description
+-------- | -------------------- 
+`create` | A record has been created. Event handler is passed a change event 
+`update` | A record has been updated. Event handler is passed a change event 
+`delete` | A record has been deleted. Event handler is passed a change event 
+`synced` | A record has been synced to the remote. Event handler is passed the key of the record and the record |
 
-## SDBStore#get
+### SDBStore#get
 Get a record from a store by key. If the store is accessed outside of a transaction
 a transaction will implicitly be acquired.
 
@@ -295,7 +318,7 @@ db.products.get(fooId, barId).then(function(foo, bar) {
 });
 ```
 
-## SDBStore#put
+### SDBStore#put
 Add or insert one or more records into a store. If the store is accessed
 outside of a transaction a transaction will implicitly be acquired.
 
@@ -322,7 +345,7 @@ db.animals.put(rabbit).then(function(key) {
 });
 ```
 
-## SDBStore#delete
+### SDBStore#delete
 Delete a record from a store by key or by a record with. If the store is
 accessed outside of a transaction a transaction will implicitly be acquired.
 
@@ -350,7 +373,7 @@ db.animals.put(newAnimal).then(function(newKey) {
 });
 ```
 
-## SDBIndex
+### SDBIndex
 
 An object representing an index in an object store. It gives access to querying
 the records in the story by the specific index.
@@ -361,7 +384,7 @@ __Properties__
 * `db`(SDBDatabase) - database the index belongs to
 * `store`(SDBStore) - store the index belongs to
 
-## SDBIndex#get
+### SDBIndex#get
 Get a record from a store by the value of a key path. If the index is accessed
 outside of a transaction a transaction will implicitly be acquired.
 
@@ -384,7 +407,7 @@ db.products.byLocation.get('south', 'north').then(function(products) {
 });
 ```
 
-## SDBIndex#getAll
+### SDBIndex#getAll
 Get all records in the store orderded by the key path of the index.
 
 __Arguments__
@@ -400,7 +423,7 @@ db.products.byValue.getAll().then(function(records) {
 });
 ```
 
-## SDBIndex#inRange
+### SDBIndex#inRange
 
 __Arguments__
 * `range`... (object) - a range to query for
@@ -421,8 +444,7 @@ db.product.byValue.getInRange({lte: 100}).then(function(products) {
 });
 ```
 
-Database declarations
-=====================
+### Database declarations
 
 IndexedDB provides a very imperiative way of handle database upgrades. Through
 migration callbacks SyncedDB makes imperiative upgrades possible as well,
@@ -451,8 +473,11 @@ stores = {
 };
 ```
 
-Events
-======
+### Events
 
 SDBDatabses and SDBStores are event emitters. These objects can publish events and you
 can register event listeners to them.
+
+Server API documentation
+========================
+
