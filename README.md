@@ -481,3 +481,76 @@ can register event listeners to them.
 Server API documentation
 ========================
 
+### Server
+
+Represents a SyncedDB server. The server makes a Web Socket server available, and handles
+messages from clients, delegating storage to a persistence strategy that must be supplied
+at construction.
+
+__Properties__
+
+* `handlers` (object) - a mapper from message types to handler functions, 
+  the handler is called like this: `handler(clientData, store, msg, sendFn, broadcastFn)`
+
+### new Server(options)
+
+__Arguments__
+* `options` (object) - options object with the following properties
+  * `port` (integer) - the port that the Web Socket server should listen at
+  * `store` (object) - an instance of a persistence strategy
+
+__Returns__
+A new server.
+
+__Example__
+
+```javascript
+var store = new MemoryPersistence();
+var server = new Server({
+  port: 3001,
+  persistence: new MemoryPersistence(),
+});
+```
+
+### Server#resetHandlers()
+
+__Arguments__
+None.
+
+__Returns__
+Nothing.
+
+__Example__
+
+```javascript
+server.resetHandlers();
+```
+
+### Server#close()
+
+Closes the Web Socket server.
+
+__Arguments__
+None.
+
+__Returns__
+Nothing.
+
+__Example__
+
+```javascript
+server.close();
+```
+
+### new Server(opts)
+
+__Arguments__
+* `range`... (object) - a range to query for
+
+__Returns__
+
+__Example__
+
+```javascript
+```
+
