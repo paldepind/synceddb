@@ -1,0 +1,47 @@
+html, body {
+  height: 100%;
+}
+body {
+  font-family: 'Cardo', serif;
+}
+.title-col {
+  justify-content: center;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  margin-bottom: -2.1em;
+}
+.triangle {
+  font-size: 10em;
+  line-height: 0.8em;
+}
+.title-col h1 {
+  font-weight: 300;
+  font-size: 6em;
+}
+.title-col p {
+  font-size: 1.8em;
+  padding-bottom: 3em;
+}
+.original-obj {
+  width: 33.33%;
+}
+.modified-obj {
+  width: 33.33%;
+}
+.diff-obj {
+  width: 33.33%;
+}
+.why-col {
+  width: 50.00%;
+}
+.what-col {
+  width: 50.00%;
+}
+.get-it-col {
+  width: 33.33%;
+}
+code {
+  font-family: 'Inconsolata';
+}
