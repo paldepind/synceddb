@@ -13,10 +13,10 @@ body {
   text-shadow: 0px 1px 1px rgba(0, 0, 0, 0.5);
   box-shadow: 0px 1px 5px rgba(0, 0, 0, 0.5);
   color: white;
-  background: #eca118;
+  background: #4cd1be;
 }
 .refreshes {
-  text-shadow: 0px 0px 5px rgba(0, 0, 0, 0.5);
+  text-shadow: 0px 0px 15px #4cd1be;
   flex-direction: row;
   position: relative;
   font-size: 10em;
@@ -64,7 +64,7 @@ body {
   top: -.3em;
 }
 .refresh:nth-child(even) {
-  color: #ECA118;
+  color: #4cd1be;
 }
 .title-col h1 {
   font-weight: 300;
@@ -82,9 +82,9 @@ body {
   left: 50%;
   margin-left: -.4em;
   color: rgba(255, 255, 255, .9);
-  text-shadow: 1px 4px 6px #eca118,
+  text-shadow: 1px 4px 6px #4cd1be,
                0px 0px 0px rgba(0, 0, 0, 1),
-               1px 4px 6px #eca118;
+               1px 4px 6px #4cd1be;
 }
 .original-obj {
   width: 33.33%;
