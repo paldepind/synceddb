@@ -821,6 +821,18 @@ describe('SyncedDB', function() {
           done();
         });
       });
+      it('can send custom messages to the remote', function(done) {
+        onSend = function(msg) {
+          var sent = JSON.parse(msg);
+          assert.deepEqual(sent, {
+            type: 'customType', data: 'something'
+          });
+          done();
+        };
+        db.connect().then(function() {
+          db.send({type: 'customType', data: 'something'});
+        });
+      });
     });
     describe('from server', function() {
       it('finishes sync if nr of records to sync is zero', function(done) {

@@ -419,8 +419,8 @@ function emitChangeEvents(changes, dbStore) {
       record: change.record,
       origin: change.origin
     });
-    if (dbStore.db.continuousWs && change.origin !== 'REMOTE') {
-      sendChangeToRemote(dbStore.db.continuousWs, dbStore.name, change.record);
+    if (dbStore.db.continuousSync && change.origin !== 'REMOTE') {
+      sendChangeToRemote(dbStore.db.ws, dbStore.name, change.record);
     }
   });
 }
@@ -756,7 +756,7 @@ function handleIncomingMessage(db, ws, msg) {
 function doPullFromRemote(ctx) {
   return new Promise(function(resolve, reject) {
     ctx.db.changesLeftFromRemote.onZero = partial(resolve, ctx);
-    ctx.storeNames.map(partial(requestChangesToStore, ctx.db, ctx.ws));
+    ctx.storeNames.map(partial(requestChangesToStore, ctx.db, ctx.db.ws));
   });
 }
 
@@ -767,7 +767,7 @@ function doPushToRemote(ctx) {
     .then(function(records) {
       ctx.db.recordsToSync.add(records.length);
       records.forEach(function(res) {
-        sendChangeToRemote(ctx.ws, res.storeName, res.record);
+        sendChangeToRemote(ctx.db.ws, res.storeName, res.record);
       });
     });
   });
@@ -775,10 +775,10 @@ function doPushToRemote(ctx) {
 
 function getWs(db) {
   if (!db.wsPromise) {
-     db.wsPromise = new Promise(function(resolve, reject) {
-      var ws = new WrappedSocket('ws://' + db.remote);
-      ws.on('open', function() {
-        resolve(ws);
+    db.wsPromise = new Promise(function(resolve, reject) {
+      db.ws = new WrappedSocket('ws://' + db.remote);
+      db.ws.on('open', function() {
+        resolve(db.ws);
       });
     });
   }
@@ -793,14 +793,34 @@ function getSyncContext(db, storeNamesArgs) {
   var storeNames = storeNamesArgs.length ? toArray(storeNamesArgs) : Object.keys(db.stores);
   return getWs(db).then(function(ws) {
     ws.on('message', partial(handleIncomingMessage, db, ws));
-    return {db: db, storeNames: storeNames, ws: ws};
+    return {db: db, storeNames: storeNames};
   });
 }
 
 function closeSyncContext(ctx) {
   ctx.db.syncing = false;
-  ctx.ws.close();
+  ctx.db.disconnect();
 }
+
+SDBDatabase.prototype.connect = function() {
+  var db = this;
+  return db.then(function() {
+    return getWs(db).then(function(){});
+  });
+};
+
+SDBDatabase.prototype.disconnect = function() {
+  if (this.ws) {
+    this.ws.close();
+    this.wsPromise = null;
+  }
+};
+
+SDBDatabase.prototype.send = function(msg) {
+  return getWs(this).then(function(ws) {
+    ws.send(msg); 
+  });
+};
 
 SDBDatabase.prototype.pushToRemote = function(/* storeNames */) {
   return getSyncContext(this, arguments)
@@ -819,7 +839,7 @@ function doSync(db, continuously, storeNames) {
   .then(doPullFromRemote)
   .then(doPushToRemote)
   .then(function(ctx) {
-    continuously ? db.continuousWs = ctx.ws
+    continuously ? db.continuousSync = true
                  : closeSyncContext(ctx);
   });
 }
