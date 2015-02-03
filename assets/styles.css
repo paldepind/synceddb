@@ -2,7 +2,7 @@ html, body {
   height: 100%;
 }
 body {
-  font-family: 'Cardo', serif;
+  font-family: 'Source Sans Pro', serif;
 }
 .title-col {
   justify-content: center;
@@ -10,19 +10,81 @@ body {
   display: flex;
   align-items: center;
   flex-direction: column;
-  margin-bottom: -2.1em;
+  text-shadow: 0px 1px 1px rgba(0, 0, 0, 0.5);
+  box-shadow: 0px 1px 5px rgba(0, 0, 0, 0.5);
+  color: white;
+  background: #eca118;
 }
-.triangle {
+.refreshes {
+  text-shadow: 0px 0px 5px rgba(0, 0, 0, 0.5);
+  flex-direction: row;
+  position: relative;
   font-size: 10em;
-  line-height: 0.8em;
+  width: .85em;
+  height: 1em;
+  perspective: 250px;
+  -webkit-perspective: 250px;
+  perspective-origin: 50% 75%;
+  -webkit-perspective-origin: 50% 75%;
+}
+.refresh {
+  position: absolute;
+  animation: rotatedb 7s linear 0s infinite;
+  -webkit-animation: rotatedb 10s linear 0s infinite;
+}
+@keyframes rotatedb {
+  from {
+    transform: rotateX(45deg) rotateZ(0deg);
+  }
+  to {
+    transform: rotateX(45deg) rotateZ(360deg);
+  }
+}
+@-webkit-keyframes rotatedb {
+  from {
+    -webkit-transform: rotateX(45deg) rotateZ(0deg);
+  }
+  to {
+    -webkit-transform: rotateX(45deg) rotateZ(360deg);
+  }
+}
+.refresh:nth-child(1) {
+  top: .1em;
+}
+.refresh:nth-child(2) {
+  top: -.0em;
+}
+.refresh:nth-child(3) {
+  top: -.1em;
+}
+.refresh:nth-child(4) {
+  top: -.2em;
+}
+.refresh:nth-child(5) {
+  top: -.3em;
+}
+.refresh:nth-child(even) {
+  color: #ECA118;
 }
 .title-col h1 {
   font-weight: 300;
   font-size: 6em;
+  margin: 0;
 }
 .title-col p {
   font-size: 1.8em;
-  padding-bottom: 3em;
+  text-align: center;
+}
+.down-arrow {
+  font-size: 3em;
+  position: absolute;
+  bottom: .3em;
+  left: 50%;
+  margin-left: -.4em;
+  color: rgba(255, 255, 255, .9);
+  text-shadow: 1px 4px 6px #eca118,
+               0px 0px 0px rgba(0, 0, 0, 1),
+               1px 4px 6px #eca118;
 }
 .original-obj {
   width: 33.33%;
@@ -43,5 +105,5 @@ body {
   width: 33.33%;
 }
 code {
-  font-family: 'Inconsolata';
+  font-family: 'Source Code Pro';
 }
