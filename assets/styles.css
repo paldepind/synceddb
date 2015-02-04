@@ -29,24 +29,6 @@ body {
 }
 .refresh {
   position: absolute;
-  animation: rotatedb 7s linear 0s infinite;
-  -webkit-animation: rotatedb 10s linear 0s infinite;
-}
-@keyframes rotatedb {
-  from {
-    transform: rotateX(45deg) rotateZ(0deg);
-  }
-  to {
-    transform: rotateX(45deg) rotateZ(360deg);
-  }
-}
-@-webkit-keyframes rotatedb {
-  from {
-    -webkit-transform: rotateX(45deg) rotateZ(0deg);
-  }
-  to {
-    -webkit-transform: rotateX(45deg) rotateZ(360deg);
-  }
 }
 .refresh:nth-child(1) {
   top: .1em;
