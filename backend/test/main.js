@@ -24,6 +24,7 @@ describe('Backend', function() {
   beforeEach(function() {
   });
   afterEach(function(done) {
+    server.resetHandlers();
     ws.send(JSON.stringify({type: 'reset'}));
     ws.onmessage = function() {
       done();
@@ -204,6 +205,13 @@ describe('Backend', function() {
         done();
       },
     ]);
+  });
+  it('calls custom handler when client connects', function(done) {
+    server.handlers.connect = function(clientData, store, msg, respond, broadcast) {
+      assert.equal(msg.type, 'connect');
+      done();
+    };
+    var newWs = new WebSocket('ws://localhost:8080');
   });
   it('calls custom create handler correctly', function(done) {
     var called = false;

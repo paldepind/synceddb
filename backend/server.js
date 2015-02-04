@@ -104,20 +104,27 @@ function broadcast(wss, ws, msg) {
   }
 }
 
+function handleMsgFn(server, ws) {
+  var s = send.bind(null, ws);
+  var b = broadcast.bind(null, server.wss, ws);
+  return function(msg) {
+    var data = JSON.parse(msg);
+    if (data.type && data.type in server.handlers) {
+      server.handlers[data.type](ws.clientData, server.store, data, s, b);
+    }
+  };
+}
+
 function Server(opts) {
   var server = this;
   server.resetHandlers();
+  server.store = opts.store;
   server.wss = new WebSocketServer({port: opts.port || 8080});
   server.wss.on('connection', function(ws) {
     ws.clientData = {};
-    ws.on('message', function(msg) {
-      var data = JSON.parse(msg);
-      if (data.type && data.type in server.handlers) {
-        var s = send.bind(null, ws);
-        var b = broadcast.bind(null, server.wss, ws);
-        var result = server.handlers[data.type](ws.clientData, opts.store, data, s, b);
-      }
-    });
+    var handleMsg = handleMsgFn(server, ws);
+    handleMsg('{"type":"connect"}');
+    ws.on('message', handleMsg);
   });
 }
 
