@@ -1,24 +1,21 @@
 SyncedDB
 ========
 SyncedDB makes it easy to write __offline-first__ applications with
-__realtime__ syncing across devices and server-side __persistence__.
+__real-time__ syncing and server-side __persistence__.
 
-In other words SyncedDB makes web applications work beautifully both online and
-offline.
+SyncedDB makes web applications work beautifully both online and offline.
+
+Write your client as if everything was stored offline! SyncedDB takes care of
+synchronizing the local database to the server and between clients.
 
 Why
 ---
-Since the arrival and widestream adoption of IndexedDB writing web applications
+Since the widestream adoption of IndexedDB writing web applications
 with full offline support has been viable. But when storing data offline web
 applications looses the feature of seamlessly making a users data available
 across devices. SyncedDB is a library that gives web applications the best of
-both worlds: a fully functional offline experience with realtime or on demand
+both worlds: a fully functional offline experience with real-time or on demand
 synchronization of data when online.
-
-When using SyncedDB web application developers can simply write the client side
-code as if everything was stored offline. Then plug in a remote backend and
-SyncedDB takes care of synchronizing the local database to the server and
-between clients.
 
 What
 ----
@@ -39,14 +36,14 @@ server.
 How is it different
 -------------------
 Some libraries caters to multiple storage backends and thus ends up with a
-limited feature set to support the lowest common denomenator (think
-localForage). Other implements a new database on top of the browsers native
-storage facilities (like PouchDB). This highly increases complexity and
-reduces performance. By being a small wrapper around IndexedDB SyncedDB gains
-some of its key features: simplicity, power and performance.
+limited feature set to support the lowest common denomenator. Other implements
+a new database on top of the browsers native storage facilities. This highly
+increases complexity and reduces performance. By being a small wrapper around
+IndexedDB SyncedDB gains some of its key features: simplicity, power and
+performance.
 
 The SyncedDB backend was designed to be as flexible as possible. Users can
-easily plug in any storage option they want, create custom message handlers at
+easily plug in any database they want, create custom message handlers at
 relevant points and extend the communication between the client and the server
 with custom messages.
 
@@ -56,13 +53,13 @@ SyncedDB is still under development. Expect rough edges.
 
 Main features
 --------
-* No new abstractions on top of IndexedDB. It exposes the same
-  raw power and performane but through a significantly more convenient API.
-* Compact declarative store and index definitions with automatic upgrades.
+* No additional abstractions on top of IndexedDB. It exposes the same
+  raw power and performane but through a significantly more convenient API
+* Compact declarative store and index definitions with automatic upgrades
 * Uses promises for all async operations — even inside IndexedDB transactions
-* Synchronizes data through WebSockets and sends only modifications to records
-  down the wire. This makes the network usage light and efficient.
-* Simple but powerful conflict handling.
+* Synchronizes data through WebSockets and sends only compact diffs down the
+  wire. This makes the network usage light and efficient.
+* Makes it easy and intuitive to handle conflicts.
 * Simple and highly flexible backend. Bring your own server-side validations,
   authentication, authorization, etc. Plug in any database you like and store data
   any way you want alongside the format that SyncedDB uses internally.
@@ -71,8 +68,8 @@ Major missing features
 ----------------
 * API for IndexedDB cursors
 * More persistence options – currently only PostreSQL and in memory (for developing)
- is supported. These are easy to write though! Check out the existing ones, start
- from there and make sure they passes the persistence test suite.
+  is supported. These are easy to write though! Check out the existing ones, start
+  from there and make sure they passes the persistence test suite.
 
 Example
 -------
@@ -162,7 +159,7 @@ make sure to wipe client side data as well by running
 
 API documentation
 -----------------
-Beware, the documentation is in very early stages.
+Beware, the documentation is in early stages.
 
 Client API documentation
 ========================
@@ -239,8 +236,8 @@ __Events__
 | `sync-initiated` |  |
 
 ### SDBDatabase#transaction
-Opens a transaction on the database in either readonly or readwrite mode and with
-including a specified list of stores.
+Opens a transaction on the database in either readonly or readwrite mode and
+including the specified list of stores.
 
 The callback is passed a number of SDBStores matching the parameter `storeNames`.
 
@@ -263,7 +260,96 @@ db.transaction(['orders', 'employees'], 'read', function(orders, employees) {
 }).then(function() {
   // transaction finished successfully
 });
+```
 
+### SDBDatabase#read
+Opens a readonly transaction on the database and including the specified list
+of stores.
+
+The callback is passed a number of SDBStores matching the arguments.
+
+__Arguments__
+
+* `storeName` (...string): A string naming a the transaction should contain.
+* `callback` (function): A function that should be carried out inside the transaction.
+
+__Returns__
+
+A promise that is resolved when the transaction finishes successfully and rejects if an
+error happens inside the transaction.
+
+__Example__
+
+```
+db.connect().then(function() {
+  db.
+});
+```
+
+### SDBDatabase#write
+Opens a readwrite transaction on the database and including the specified list
+of stores.
+
+The callback is passed a number of SDBStores matching the arguments.
+
+__Arguments__
+
+* `storeName` (...string): A string naming a the transaction should contain.
+* `callback` (function): A function that should be carried out inside the transaction.
+
+__Returns__
+
+A promise that is resolved when the transaction finishes successfully and rejects if an
+error happens inside the transaction.
+
+__Example__
+
+```
+db.connect().then(function() {
+  db.
+});
+```
+
+### SDBDatabase#connect
+Open a WebSocket connection to the server. This is useful if you wish to send custom messages
+to the server using `SDBDatabase#send`.
+
+__Arguments__
+
+None.
+
+__Returns__
+
+A promise that is resolved when the connection has been established and rejects if an
+error happens while trying to connect.
+
+__Example__
+
+```
+db.connect().then(function() {
+  // connection is established
+});
+```
+
+### SDBDatabase#disconnect
+Closes a WebSocket connection to the server.
+
+__Arguments__
+
+None.
+
+__Returns__
+
+Nothing
+
+__Example__
+
+```
+db.connect().then(function() {
+  // we are connected
+  db.disconnect();
+  // now disconnected
+});
 ```
 
 ### SDBStore
@@ -294,7 +380,7 @@ a transaction will implicitly be acquired.
 
 __Arguments__
 
-* `key`... (string|number) - a primary key of a record
+* `key` (...string|number) - a primary key of a record
 
 __Returns__
 
@@ -324,7 +410,7 @@ outside of a transaction a transaction will implicitly be acquired.
 
 __Arguments__
 
-* `record`... (object) - a record as an object
+* `record` (...object) - a record as an object
 
 __Returns__
 
@@ -351,7 +437,7 @@ accessed outside of a transaction a transaction will implicitly be acquired.
 
 __Arguments__
 
-* `key`... (string|number|object) - a primary key of a record or an object with a key property
+* `key` (...string|number|object) - a primary key of a record or an object with a key property
 
 __Returns__
 
@@ -390,7 +476,7 @@ outside of a transaction a transaction will implicitly be acquired.
 
 __Arguments__
 
-* `value`... (string|number|boolean|object|array) - value to match against the
+* `value` (...string|number|boolean|object|array) - value to match against the
   value at the records key path
 
 __Returns__
@@ -426,7 +512,7 @@ db.products.byValue.getAll().then(function(records) {
 ### SDBIndex#inRange
 
 __Arguments__
-* `range`... (object) - a range to query for
+* `range` (...object) - a range to query for
 
 __Returns__
 A promise resolved with an array of all records that are contained in one
@@ -545,7 +631,7 @@ server.close();
 ### new Server(opts)
 
 __Arguments__
-* `range`... (object) - a range to query for
+* `range` (...object) - a range to query for
 
 __Returns__
 
