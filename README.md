@@ -578,6 +578,25 @@ __Properties__
 * `handlers` (object) - a mapper from message types to handler functions, 
   the handler is called like this: `handler(clientData, store, msg, sendFn, broadcastFn)`
 
+### Server.defaultHandlers
+
+The default handlers for the inbuilt message types. If you want to extend the default
+message handlers (for instance with validation) you can overwrite a servers handler and
+delegate off to a default handler.
+
+__Example__
+
+```javascript
+server.handle.create(function(clientData, store, msg, respond, broadcast) {
+  var errorMsg = validateCreateMsg(msg);
+  if (errorMsg) {
+    respond(errorMsg);
+  } else {
+    Server.defaultHandlers.create.apply(null, arguments);
+  }
+});
+```
+
 ### new Server(options)
 
 __Arguments__
@@ -600,16 +619,21 @@ var server = new Server({
 
 ### Server#resetHandlers()
 
+Reset all the servers message handlers to their default.
+
 __Arguments__
+
 None.
 
 __Returns__
+
 Nothing.
 
 __Example__
 
 ```javascript
 server.resetHandlers();
+assert.deepEqual(server.handlers, Server.defaultHandlers);
 ```
 
 ### Server#close()
@@ -617,9 +641,11 @@ server.resetHandlers();
 Closes the Web Socket server.
 
 __Arguments__
+
 None.
 
 __Returns__
+
 Nothing.
 
 __Example__
@@ -627,16 +653,3 @@ __Example__
 ```javascript
 server.close();
 ```
-
-### new Server(opts)
-
-__Arguments__
-* `range` (...object) - a range to query for
-
-__Returns__
-
-__Example__
-
-```javascript
-```
-
