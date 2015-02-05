@@ -97,11 +97,11 @@ function send(ws, msg) {
 
 function broadcast(wss, ws, msg) {
   var string = JSON.stringify(msg);
-  for(var i in wss.clients) {
-    if (wss.clients[i] !== ws && ws.clientData.changesRequested === true) {
-      wss.clients[i].send(string);
+  wss.clients.forEach(function(client) {
+    if (client !== ws && ws.clientData.changesRequested === true) {
+      client.send(string);
     }
-  }
+  });
 }
 
 function handleMsgFn(server, ws) {
