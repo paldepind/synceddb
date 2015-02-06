@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Authentication example</title>
+    <style>
+    body {
+      font-family: sans-serif;
+      line-height: 1.5em;
+    }
+    * {
+      transition: .2s all ease;
+    }
+    #wrapper {
+      width: 30em;
+      margin: 0 auto;
+    }
+    #messages {
+      list-style: none;
+      padding: 0;
+    }
+    #messages li {
+      margin: .5em 0;
+      padding: .5em;
+      box-shadow: 0 0 3px rgba(0, 0, 0, 0.25);
+    }
+    #messages li span {
+      display: inline-block;
+      transform: translateX(0em);
+    }
+    #messages .synced span,
+    #messages .rejected span {
+      transform: translateX(1.5em);
+    }
+    #messages li::before {
+      transition: .2s all ease;
+      content: '✓';
+      transform: scale(9);
+      margin: 0 -1.4em 0 .4em;
+      width: 1.1em;
+      opacity: 0;
+      position: relative;
+      z-index: -1;
+      color: green;
+      display: inline-block;
+    }
+    #messages li.rejected::before {
+      content: '✗';
+      color: red;
+    }
+    #messages .rejected::before,
+    #messages .synced::before {
+      opacity: 1;
+      transform: scale(1.8);
+    }
+    #add-msg-form {
+      box-shadow: 0 0 3px rgba(0, 0, 0, 0.25);
+      position: relative;
+    }
+    button {
+      color: white;
+      background: green;
+      cursor: pointer;
+      padding: .5em 1em;
+    }
+    button, input {
+      border: 0;
+      font-size: 1em;
+    }
+    input[type=radio] {
+      margin-right: .4em;
+    }
+    .msg-button {
+      position: absolute;
+      right: 0;
+    }
+    .msg-input {
+      width: 100%;
+      display: block;
+      box-sizing: border-box;
+      background: white;
+      padding: .5em;
+    }
+    </style>
+    <script src='../../client/dist/synceddb-global.js'></script>
+    <script src='client.js'></script>
+  </head>
+  <body>
+    <div id="wrapper">
+      <h1>Login with token</h1>
+      <form id="connect-form" action="">
+        <input type="radio" name="token" value="token1" id="radio1" /><label for="radio1">Token1 (read access)</label>
+        <br/>
+        <input type="radio" name="token" value="token2" id="radio2" /><label for="radio2">Token2 (read and write access)</label>
+        <br/>
+        <input type="radio" name="token" value="token3" id="radio3" /><label for="radio3">Token3 (invalid)</label>
+        <br/>
+        <button type="submit">Connect</button>
+      </form>
+      <h1>Messages</h1>
+      <ul id="messages">
+      </ul>
+      <h1>Add message</h1>
+      <form id="add-msg-form" action="">
+        <button type="submit" class="msg-button">Add</button>
+        <input id="msg-text" class="msg-input" />
+      </form>
+    </div>
+  </body>
+</html>
