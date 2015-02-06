@@ -317,6 +317,7 @@ var SDBObjectStore = function(db, name, indexes, tx) {
   store.db = db;
   store.indexes = indexes;
   store.changedRecords = [];
+  store.messages = new Events();
   Events(store);
   indexes.forEach(function(i) {
     store[i] = new SDBIndex(i, db, store);
@@ -734,12 +735,16 @@ var handleIncomingMessageByType = {
     });
   },
   'reject': function(db, ws, msg) {
-    var func = db.stores[msg.storeName].handleReject;
-    if (!isFunc(func)) {
+    if (!isKey(msg.key)) {
+      throw new Error('Reject message recieved from remote without key property');
+    }
+    var f = isString(msg.storeName) ? db.stores[msg.storeName].handleReject
+                                    : db.handleReject;
+    if (!isFunc(f)) {
       throw new Error('Reject message recieved from remote but no reject handler is supplied');
     }
     db.stores[msg.storeName].get(msg.key).then(function(record) {
-      return func(record, msg);
+      return f(record, msg);
     }).then(function(record) {
       record ? sendChangeToRemote(ws, msg.storeName, record)
              : db.recordsToSync.add(-1); // Skip syncing record
@@ -749,8 +754,10 @@ var handleIncomingMessageByType = {
 
 function handleIncomingMessage(db, msg) {
   var handler = handleIncomingMessageByType[msg.type];
-  handler ? handler(db, db.ws, msg)
-          : db.messages.emit(msg.type, msg);
+  var target = isString(msg.storeName) ? db.stores[msg.storeName].messages
+                                       : db.messages;
+  isFunc(handler) ? handler(db, db.ws, msg)
+                  : target.emit(msg.type, msg);
 }
 
 function doPullFromRemote(ctx) {

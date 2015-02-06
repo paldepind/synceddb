@@ -1232,7 +1232,7 @@ describe('SyncedDB', function() {
           done();
         });
       });
-      it('emits event when custom message recieved', function(done) {
+      it('emits event when custom message is recieved', function(done) {
         db.messages.on('myMsgType', function(msg) {
           assert.deepEqual(msg, {type: 'myMsgType', data: 'stuff'});
           done();
@@ -1242,6 +1242,26 @@ describe('SyncedDB', function() {
           assert(data.type === 'get-changes');
           ws.onmessage({data: JSON.stringify({
             type: 'myMsgType',
+            data: 'stuff',
+          })});
+        };
+        db.pullFromRemote('animals');
+      });
+      it('emits event on store when custom message with store name is recieved', function(done) {
+        db.animals.messages.on('myMsgType', function(msg) {
+          assert.deepEqual(msg, {
+            type: 'myMsgType',
+            storeName: 'animals',
+            data: 'stuff'
+          });
+          done();
+        });
+        onSend = function(msg) {
+          var data = JSON.parse(msg);
+          assert(data.type === 'get-changes');
+          ws.onmessage({data: JSON.stringify({
+            type: 'myMsgType',
+            storeName: 'animals',
             data: 'stuff',
           })});
         };
