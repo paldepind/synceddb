@@ -562,7 +562,8 @@ SDBDatabase.prototype.transaction = function(storeNames, mode, fn) {
     db.then(function(res) {
       var tx = db.db.transaction(storeNames, mode);
       var stores = storeNames.map(function(s) {
-        return (new SDBObjectStore(db, s, db[s].indexes, tx));
+        var store = s === 'sdbMetaData' ? db[s] : db.stores[s];
+        return (new SDBObjectStore(db, s, store.indexes, tx));
       });
       tx.oncomplete = resolve;
       fn.apply(null, stores);
@@ -747,9 +748,9 @@ var handleIncomingMessageByType = {
   },
 };
 
-function handleIncomingMessage(db, ws, msg) {
+function handleIncomingMessage(db, msg) {
   var handler = handleIncomingMessageByType[msg.type];
-  handler ? handler(db, ws, msg)
+  handler ? handler(db, db.ws, msg)
           : db.messages.emit(msg.type, msg);
 }
 
@@ -777,6 +778,7 @@ function getWs(db) {
   if (!db.wsPromise) {
     db.wsPromise = new Promise(function(resolve, reject) {
       db.ws = new WrappedSocket('ws://' + db.remote);
+      db.ws.on('message', partial(handleIncomingMessage, db));
       db.ws.on('open', function() {
         resolve(db.ws);
       });
@@ -792,7 +794,6 @@ function getSyncContext(db, storeNamesArgs) {
   db.syncing = true;
   var storeNames = storeNamesArgs.length ? toArray(storeNamesArgs) : Object.keys(db.stores);
   return getWs(db).then(function(ws) {
-    ws.on('message', partial(handleIncomingMessage, db, ws));
     return {db: db, storeNames: storeNames};
   });
 }
@@ -818,7 +819,7 @@ SDBDatabase.prototype.disconnect = function() {
 
 SDBDatabase.prototype.send = function(msg) {
   return getWs(this).then(function(ws) {
-    ws.send(msg); 
+    ws.send(msg);
   });
 };
 

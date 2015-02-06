@@ -833,6 +833,18 @@ describe('SyncedDB', function() {
           db.send({type: 'customType', data: 'something'});
         });
       });
+      it('can receive custom messages from the remote after connect', function(done) {
+        db.messages.on('custom-msg', function(msg) {
+          assert.equal(msg.data, 'foobar');
+          done();
+        });
+        db.connect().then(function() {
+          ws.onmessage({data: JSON.stringify({
+            type: 'custom-msg',
+            data: 'foobar'
+          })});
+        });
+      });
     });
     describe('from server', function() {
       it('finishes sync if nr of records to sync is zero', function(done) {
