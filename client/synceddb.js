@@ -96,66 +96,6 @@ Countdown.prototype.add = function(n) {
   if (this.val === 0) this.onZero();
 };
 
-// Super retarded promise implementation
-function SyncPromise(fn) {
-  this._thenCbs = [];
-  this._catchCbs = [];
-  fn(this._resolve.bind(this), this._reject.bind(this));
-}
-
-SyncPromise.prototype._resolve = function(val) {
-  var self = this;
-  if (val && isFunc(val.then)) {
-    val.then(this._resolve.bind(this));
-  } else {
-    self.val = val;
-    this._thenCbs.forEach(function(fn) {
-      fn(val);
-    });
-  }
-};
-
-SyncPromise.prototype._reject = function(val) {
-  this._catchCbs.forEach(function(fn) {
-    fn(val);
-  });
-};
-
-SyncPromise.prototype.then = function(onFulfilled) {
-  var self = this;
-  return (new SyncPromise(function(resolve, reject) {
-    if ('val' in self) {
-      resolve(isFunc(onFulfilled) ? onFulfilled(self.val)
-                                  : self.val);
-    } else {
-      self._thenCbs.push(function(result) {
-        resolve(isFunc(onFulfilled) ? onFulfilled(result)
-                                    : result);
-      });
-      self._catchCbs.push(function(reason) {
-        reject(reason);
-      });
-    }
-  }));
-};
-
-SyncPromise.prototype.catch = function(cb) {
-  this._catchCbs.push(cb);
-};
-
-SyncPromise.all = function(promises) {
-  return new SyncPromise(function(resolve, reject) {
-    var results = [], resolved = 0;
-    promises.forEach(function(promise, i) {
-      promise.then(function(res) {
-        results[i] = res;
-        if (++resolved === promises.length) resolve(results);
-      });
-      promise.catch(reject);
-    });
-  });
-};
-
 function WrappedSocket(url, protocol) {
   var wws = this;
   Events(wws);
@@ -550,7 +490,7 @@ var updateMsg = function(storeName, record) {
   delete record.remoteOriginal; // Noise free diff
   remoteOriginal.version = record.version;
   remoteOriginal.changedSinceSync = 1;
-  var diff = exports.diff(remoteOriginal, record);
+  var diff = dffptch.diff(remoteOriginal, record);
   record.remoteOriginal = remoteOriginal;
   return JSON.stringify({
     type: 'update',
@@ -620,11 +560,11 @@ var handleIncomingMessageByType = {
           var original = record.remoteOriginal;
           var local = stripLocalMeta(record);
           var remote = copyRecord(original);
-          exports.patch(remote, msg.diff);
+          dffptch.patch(remote, msg.diff);
           var resolved = db.stores[msg.storeName].handleConflict(original, local, remote);
           return putValToStore(store, resolved, 'LOCAL');
         } else {
-          exports.patch(record, msg.diff);
+          dffptch.patch(record, msg.diff);
           return putValToStore(store, record, 'REMOTE');
         }
       }).then(function() {
