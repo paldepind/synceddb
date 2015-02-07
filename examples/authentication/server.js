@@ -32,6 +32,19 @@ server.handlers.create = function(clientData, store, msg, send, broadcast) {
   }
 };
 
+server.handlers['get-changes'] = function(clientData, store, msg, send, broadcast) {
+  if (clientData.privileges === 'readwrite' ||
+      clientData.privileges === 'readonly') {
+    Server.defaultHandlers['get-changes'].apply(undefined, arguments);
+  } else {
+    send({
+      type: 'unauthorized',
+      requestedStore: msg.storeName,
+      description: 'You do not have privileges to read records',
+    });
+  }
+};
+
 server.handlers.authenticate = function(clientData, store, msg, send, broadcast) {
   console.log('Authentication message recieved');
   var res = {type: 'auth-response'};

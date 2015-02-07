@@ -75,8 +75,14 @@
         console.log('authenticated');
         db.syncContinuously();
       } else {
-        console.log('auth failed');
+        console.log('Auth failed, we try synchronizing anyway.');
+        db.syncContinuously();
       }
+    });
+
+    db.messages.on('unauthorized', function(msg) {
+      console.log('Unauthorized message recieved from server');
+      console.log(msg);
     });
 
     document.getElementById('add-msg-form').addEventListener('submit', function(e) {
