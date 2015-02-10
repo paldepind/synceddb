@@ -359,6 +359,9 @@ SDBIndex.prototype.inRange = function(/* ranges */) {
 function setStoreTx(store, tx) {
   store.tx = tx;
   store.IDBStore = tx.objectStore(store.name);
+  tx.addEventListener('abort', function() {
+    store.tx = undefined;
+  });
   tx.addEventListener('complete', function() {
     store.tx = undefined;
     emitChangeEvents(store.changedRecords, store.db.stores[store.name]);
@@ -399,8 +402,7 @@ SDBObjectStore.prototype.get = function(/* keys */) {
   var keys = toArray(arguments);
   return doInStoreTx('readonly', store, function(tx, resolve, reject) {
     var gets = keys.map(partial(doGet, store.IDBStore));
-    SyncPromise.all(gets)
-    .then(function(records) {
+    SyncPromise.all(gets).then(function(records) {
       if (keys.length === records.length)
         resolve(keys.length == 1 ? records[0] : records);
     })
@@ -432,11 +434,19 @@ function doInStoreTx(mode, store, cb) {
     return store.db.then(function() {
       var tx = store.db.db.transaction(store.name, mode);
       setStoreTx(store, tx);
-      return (new Promise(function(resolve, reject) {
-        var res;
-        cb(tx, function(r) { res = r; }, reject);
-        tx.oncomplete = function() { resolve(res); };
-      }));
+      return new Promise(function(resolve, reject) {
+        var val, rejected;
+        cb(tx, function(v) {
+          val = v;
+          rejected = false;
+        }, function(v) {
+          val = v;
+          rejected = true;
+        });
+        tx.oncomplete = function() {
+          rejected ? reject(val) : resolve(val);
+        };
+      });
     });
   }
 }

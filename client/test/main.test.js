@@ -425,11 +425,28 @@ describe('SyncedDB', function() {
       var key;
       db.houses.put({street: 'Somewhere 7', built: 1982})
       .then(function(insertKey) {
-        keys = insertKeys;
+        key = insertKey;
         return db.houses.delete(insertKey);
       }).then(function(house) {
         return db.houses.get(key);
       }).catch(function(err) {
+        done();
+      });
+    });
+    it('can delete several records by key', function(done) {
+      var keys;
+      db.houses.put(
+          {street: 'Somewhere 7', built: 1982},
+          {street: 'Somewhere 8', built: 1985}
+      ).then(function(insertKeys) {
+        keys = insertKeys;
+        return db.houses.delete(insertKeys[0], insertKeys[1]);
+      }).then(function(house) {
+        return db.houses.get(keys[0]);
+      }).catch(function(err) {
+        return db.houses.get(keys[1]);
+      }).catch(function(err) {
+        console.log(err);
         done();
       });
     });
