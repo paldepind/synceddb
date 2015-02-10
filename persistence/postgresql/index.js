@@ -23,7 +23,7 @@ function pgPersistence(opts) {
     client = c;
     return client.queryAsync(
       'CREATE TABLE IF NOT EXISTS synceddb_changes' +
-      '(timestamp serial, key integer, storename text, data json)'
+      '(timestamp serial, key INTEGER NOT NULL, storename TEXT NOT NULL, data JSON NOT NULL)'
     );
   }).then(function() {
     client.close();
@@ -48,6 +48,7 @@ pgPersistence.prototype.saveChange = function(change) {
       change.key = newKey;
     }
     change.version = 0;
+    console.log(change);
     return client.queryAsync(
       'INSERT INTO synceddb_changes (key, storename, data)' +
       'VALUES ($1, $2, $3) RETURNING timestamp',

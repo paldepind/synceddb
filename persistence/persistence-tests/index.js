@@ -26,6 +26,8 @@ function testPersistence(Persistence) {
         storeName: 'animals',
         clientId: 1,
         record: {name: 'Thumper', key: 1},
+        version: 0,
+        key: 1,
       }).then(function(change) {
         assert.notEqual(change.timestamp, undefined);
         assert.notEqual(change.version, undefined);
