@@ -240,14 +240,10 @@ SDBObjectStore.prototype.delete = function(/* keys */) {
   var store = this;
   var args = toArray(arguments);
   return doInStoreTx('readwrite', store, function(tx, resolve, reject) {
-    var keys = args.map(extractKey);
-    var recordsLeftToDelete = new Countdown(keys.length);
-    recordsLeftToDelete.onZero = resolve;
-    keys.forEach(function(key) {
-      deleteFromStore(store, key, 'LOCAL').then(function() {
-        recordsLeftToDelete.add(-1);
-      });
+    var deletes = args.map(function(key) {
+      return deleteFromStore(store, extractKey(key), 'LOCAL');
     });
+    SyncPromise.all(deletes).then(resolve).catch(reject);
   });
 };
 
