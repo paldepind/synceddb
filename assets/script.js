@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.requestAnimationFrame(animate);
     var scrolled = window.scrollY / window.innerHeight;
     var spinDeg = (timestamp / 18) % 360;
-    var persp = 40 + (45 * scrolled);
+    var persp = 40 + (40 * scrolled);
     var transString = 'rotateX('+persp+'deg) rotateZ('+spinDeg+'deg)';
     for (var i = 0; i < refs.length; i++) {
       refs[i].style.transform = transString;

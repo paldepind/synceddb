@@ -16,14 +16,16 @@ body {
   background: #4cd1be;
 }
 .refreshes {
-  text-shadow: 0px 0px 15px #4cd1be;
+  color: #FFE953;
+  text-shadow: 0px 0px 15px #4cd1be,
+               0px 1px 1px rgba(0, 0, 0, 0.2);
   flex-direction: row;
   position: relative;
   font-size: 10em;
   width: .85em;
   height: 1em;
-  perspective: 250px;
-  -webkit-perspective: 250px;
+  perspective: 200px;
+  -webkit-perspective: 200px;
   perspective-origin: 50% 75%;
   -webkit-perspective-origin: 50% 75%;
 }
@@ -47,6 +49,7 @@ body {
 }
 .refresh:nth-child(even) {
   color: #4cd1be;
+  text-shadow: 0px 0px 15px #4cd1be;
 }
 .title-col h1 {
   font-weight: 300;
