@@ -2,13 +2,12 @@ var extend = require('xtend');
 var WebSocketServer = require('ws').Server;
 
 var handleCreateMsg = function(clientData, store, msg, respond, broadcast) {
-  msg.record.version = 0;
-  var originalKey = msg.record.key;
+  var originalKey = msg.key;
   var change = {
     type: 'create',
     storeName: msg.storeName,
     record: msg.record,
-    key: msg.record.key,
+    key: originalKey,
   };
   store.saveChange(change).then(function(change) {
     var newKey = originalKey !== change.key ? change.key : undefined;
@@ -30,12 +29,12 @@ var handleUpdateMsg = function(clientData, store, msg, respond, broadcast) {
     storeName: msg.storeName,
     diff: msg.diff,
     key: msg.key,
-    version: msg.version + 1,
+    version: msg.version,
   };
   store.saveChange(change).then(function(change) {
     respond({
       type: 'ok',
-      storeName: msg.storeName,
+      storeName: change.storeName,
       key: msg.key,
       timestamp: change.timestamp,
       newVersion: change.version,
@@ -49,7 +48,7 @@ var handleDeleteMsg = function(clientData, store, msg, respond, broadcast) {
     type: 'delete',
     storeName: msg.storeName,
     key: msg.key,
-    version: msg.version + 1,
+    version: msg.version,
   };
   store.saveChange(change).then(function(change) {
     respond({
@@ -64,8 +63,7 @@ var handleDeleteMsg = function(clientData, store, msg, respond, broadcast) {
 };
 
 var handleResetMsg = function(clientData, store, msg, respond, broadcast) {
-  store.resetChanges()
-  .then(function() {
+  store.resetChanges().then(function() {
     respond({type: 'reset'});
   });
 };

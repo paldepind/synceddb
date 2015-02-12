@@ -483,12 +483,16 @@ var getRecordsChangedSinceSync = function(db, storeNames) {
 };
 
 var createMsg = function(storeName, record) {
-  stripLocalMeta(record);
-  return JSON.stringify({
+  var r = copyRecord(record);
+  stripLocalMeta(r);
+  delete r.key;
+  var msg = {
     type: 'create',
     storeName: storeName,
-    record: record,
-  });
+    record: r,
+    key: record.key,
+  };
+  return JSON.stringify(msg);
 };
 
 var updateMsg = function(storeName, record) {
@@ -553,6 +557,8 @@ var handleIncomingMessageByType = {
   },
   'create': function(db, ws, msg) {
     msg.record.changedSinceSync = 0;
+    msg.record.key = msg.key;
+    msg.record.version = msg.version;
     handleRemoteChange(db, msg.storeName, function(store, metaStore) {
       addRecToStore(store, msg.record, 'REMOTE').then(function() {
         updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
@@ -571,6 +577,7 @@ var handleIncomingMessageByType = {
           return putValToStore(store, resolved, 'LOCAL');
         } else {
           dffptch.patch(record, msg.diff);
+          record.version = msg.version;
           return putValToStore(store, record, 'REMOTE');
         }
       }).then(function() {
@@ -686,7 +693,9 @@ function getSyncContext(db, storeNamesArgs) {
   }
   db.syncing = true;
   var storeNames = storeNamesArgs.length ? toArray(storeNamesArgs) : Object.keys(db.stores);
-  return getWs(db).then(function(ws) {
+  return db.then(function() {
+    return getWs(db);
+  }).then(function(ws) {
     return {db: db, storeNames: storeNames};
   });
 }

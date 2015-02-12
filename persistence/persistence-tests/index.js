@@ -13,7 +13,8 @@ function testPersistence(Persistence) {
       return store.saveChange({
         type: 'create',
         storeName: 'animals',
-        record: {name: 'Thumper', key: 1},
+        record: {name: 'Thumper'},
+        key: 1,
       }).then(function(change) {
         assert.notEqual(change.timestamp, undefined);
         assert.notEqual(change.version, undefined);

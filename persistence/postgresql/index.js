@@ -25,6 +25,7 @@ function pgPersistence(opts) {
       'CREATE TABLE IF NOT EXISTS synceddb_changes' +
       '(timestamp serial, ' +
       'key INTEGER NOT NULL, ' +
+      'version INTEGER NOT NULL, ' +
       'storename TEXT NOT NULL, ' +
       'type TEXT NOT NULL,' +
       'data JSON NOT NULL)'
@@ -54,21 +55,17 @@ var validateChange = function(c) {
 var processChange = {
   create: function(change, data, client) {
     change.version = 0;
-    data.version = 0;
     data.record = change.record;
     return getNewKey(client).then(function(nK) {
-      change.record.key = nK;
       change.key = nK;
     });
   },
   update: function(change, data, client) {
     data.diff = change.diff;
     change.version++;
-    data.version = change.version;
   },
   delete: function(change, data, client) {
     change.version++;
-    data.version = change.version;
   },
 };
 
@@ -80,9 +77,9 @@ pgPersistence.prototype.saveChange = function(change) {
     return processChange[change.type](change, data, client);
   }).then(function() {
     return client.queryAsync(
-      'INSERT INTO synceddb_changes (key, storename, type, data)' +
-      'VALUES ($1, $2, $3, $4) RETURNING timestamp',
-      [change.key, change.storeName, change.type, data]
+      'INSERT INTO synceddb_changes (key, version, storename, type, data)' +
+      'VALUES ($1, $2, $3, $4, $5) RETURNING timestamp',
+      [change.key, change.version, change.storeName, change.type, data]
     );
   }).then(function(res) {
     client.close();
@@ -97,7 +94,8 @@ pgPersistence.prototype.getChanges = function(req) {
   return getClient(this).then(function(c) {
     client = c;
     return client.queryAsync(
-      'SELECT * FROM synceddb_changes WHERE storename = $1 AND timestamp > $2',
+      'SELECT * FROM synceddb_changes ' +
+      'WHERE storename = $1 AND timestamp > $2 ORDER BY timestamp',
       [req.storeName, since]
     );
   }).then(function(result) {
@@ -107,6 +105,7 @@ pgPersistence.prototype.getChanges = function(req) {
       r.data.timestamp = r.timestamp;
       r.data.storeName = r.storename;
       r.data.type = r.type;
+      r.data.version = r.version;
       return r.data;
     });
   });

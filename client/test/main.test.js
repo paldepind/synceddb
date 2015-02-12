@@ -610,7 +610,7 @@ describe('SyncedDB', function() {
           ws.onmessage({data: JSON.stringify({
             type: 'ok',
             storeName: 'roads',
-            key: sent.record.key,
+            key: sent.key,
             timestamp: timestamp++,
             newVersion: 0,
           })});
@@ -621,7 +621,7 @@ describe('SyncedDB', function() {
         }).then(function() {
           var sent = JSON.parse(sendSpy.getCall(0).args[0]);
           assert.deepEqual(sent.record, {
-            length: 100, price: 1337, key: road.key
+            length: 100, price: 1337
           });
           done();
         });
@@ -634,7 +634,7 @@ describe('SyncedDB', function() {
           ws.onmessage({data: JSON.stringify({
             type: 'ok',
             storeName: sent.storeName,
-            key: sent.record.key,
+            key: sent.key,
             timestamp: timestamp++,
             newVersion: 0,
           })});
@@ -648,7 +648,7 @@ describe('SyncedDB', function() {
         .then(function() {
           var sent = JSON.parse(sendSpy.getCall(0).args[0]);
           assert.deepEqual(sent.record, {
-            length: 100, price: 1337, key: road.key
+            length: 100, price: 1337
           });
           assert.equal(sendSpy.callCount, 1);
           done();
@@ -661,7 +661,7 @@ describe('SyncedDB', function() {
           ws.onmessage({data: JSON.stringify({
             type: 'ok',
             storeName: 'roads',
-            key: sent.record.key,
+            key: sent.key,
             timestamp: timestamp++,
             newVersion: 0,
           })});
@@ -683,12 +683,11 @@ describe('SyncedDB', function() {
         var spy = sinon.spy();
         onSend = function(msg) {
           var sent = JSON.parse(msg);
-          sentKey = sent.record.key;
           assert(spy.notCalled);
           ws.onmessage({data: JSON.stringify({
             type: 'ok',
             storeName: 'roads',
-            key: sent.record.key,
+            key: sent.key,
             timestamp: timestamp++,
             newVersion: 0,
           })});
@@ -786,7 +785,7 @@ describe('SyncedDB', function() {
           ws.onmessage({data: JSON.stringify({
             type: 'ok',
             storeName: 'roads',
-            key: sent.record.key,
+            key: sent.key,
             newKey: 1,
             timestamp: timestamp++,
             newVersion: 0,
@@ -815,7 +814,7 @@ describe('SyncedDB', function() {
             ws.onmessage({data: JSON.stringify({
               type: 'ok',
               storeName: 'roads',
-              key: sent.record.key,
+              key: sent.key,
               timestamp: 8,
               newVersion: 0,
             })});
@@ -892,38 +891,17 @@ describe('SyncedDB', function() {
             type: 'create',
             storeName: 'roads',
             timestamp: 1,
-            record: {version: 0, length: 133, price: 1000, key: 'foo'}
+            version: 0,
+            key: 'foo',
+            record: {length: 133, price: 1000},
           })});
         };
-        db.pullFromRemote('roads')
-        .then(function() {
+        db.pullFromRemote('roads').then(function() {
           return db.roads.byLength.get(133);
-        }).then(function(road) {
-          assert.equal(road[0].price, 1000);
-          done();
-        });
-      });
-      it('handles created documents', function(done) {
-        onSend = function(msg) {
-          var data = JSON.parse(msg);
-          assert.equal(data.type, 'get-changes');
-          assert.deepEqual(data.storeName, 'roads');
-          ws.onmessage({data: JSON.stringify({
-            type: 'sending-changes',
-            nrOfRecordsToSync: 1
-          })});
-          ws.onmessage({data: JSON.stringify({
-            type: 'create',
-            storeName: 'roads',
-            timestamp: 1,
-            record: {version: 0, length: 133, price: 1000, key: 'foo'}
-          })});
-        };
-        db.pullFromRemote('roads')
-        .then(function() {
-          return db.roads.byLength.get(133);
-        }).then(function(road) {
-          assert.equal(road[0].price, 1000);
+        }).then(function(roads) {
+          console.log(roads);
+          assert.equal(roads[0].price, 1000);
+          assert.equal(roads[0].version, 0);
           done();
         });
       });
@@ -941,7 +919,8 @@ describe('SyncedDB', function() {
             type: 'create',
             storeName: 'roads',
             timestamp: 1,
-            record: {version: 0, length: 133, price: 1000, key: 'foo'}
+            key: 'foo',
+            record: {version: 0, length: 133, price: 1000}
           })});
         };
         db.pullFromRemote('roads')
@@ -958,14 +937,14 @@ describe('SyncedDB', function() {
         });
       });
       it('handles updated documents', function(done) {
-        var road = {length: 100, price: 1337};
+        var roadKey, road = {length: 100, price: 1337};
         onSend = function(raw) {
           var msg = JSON.parse(raw);
           if (msg.type === 'create') {
             ws.onmessage({data: JSON.stringify({
               type: 'ok',
               storeName: 'roads',
-              key: msg.record.key,
+              key: msg.key,
               timestamp: timestamp++,
               newVersion: 0,
             })});
@@ -980,20 +959,21 @@ describe('SyncedDB', function() {
               key: road.key,
               timestamp: 1,
               version: 1,
-              diff: {m: {0: 110}},
+              diff: {m: {2: 110}},
             })});
           }
         };
-        db.roads.put(road)
-        .then(function() {
+        db.roads.put(road).then(function() {
           roadKey = road.key;
           return db.pushToRemote();
         }).then(function() {
-          db.pullFromRemote();
+          return db.pullFromRemote('roads');
         }).then(function() {
           return db.roads.get(roadKey);
         }).then(function(road) {
-          assert(road.changedSinceSync === 0);
+          assert.equal(road.version, 1);
+          assert.equal(road.changedSinceSync, 0);
+          assert.equal(road.length, 110);
           done();
         });
       });
@@ -1006,7 +986,7 @@ describe('SyncedDB', function() {
             ws.onmessage({data: JSON.stringify({
               type: 'ok',
               storeName: 'roads',
-              key: msg.record.key,
+              key: msg.key,
               timestamp: timestamp++,
               newVersion: 0,
             })});
@@ -1047,7 +1027,7 @@ describe('SyncedDB', function() {
             ws.onmessage({data: JSON.stringify({
               type: 'ok',
               storeName: 'roads',
-              key: msg.record.key,
+              key: msg.key,
               timestamp: timestamp++,
               newVersion: 0,
             })});
@@ -1105,7 +1085,7 @@ describe('SyncedDB', function() {
             ws.onmessage({data: JSON.stringify({
               type: 'ok',
               storeName: 'roads',
-              key: msg.record.key,
+              key: msg.key,
               timestamp: timestamp++,
               newVersion: 0,
             })});
@@ -1155,7 +1135,7 @@ describe('SyncedDB', function() {
             ws.onmessage({data: JSON.stringify({
               type: 'ok',
               storeName: 'roads',
-              key: msg.record.key,
+              key: msg.key,
               timestamp: timestamp++,
               newVersion: 0,
             })});
@@ -1237,14 +1217,15 @@ describe('SyncedDB', function() {
             type: 'create',
             storeName: 'roads',
             timestamp: 1,
-            record: {version: 0, length: 133, price: 1000, key: 'foo'}
+            key: 'foo',
+            version: 0,
+            record: {length: 133, price: 1000}
           })});
         };
         db.roads.on('add', function(e) {
           key = e.record.key;
         });
-        db.pullFromRemote('roads')
-        .then(function() {
+        db.pullFromRemote('roads').then(function() {
           assert.equal(key, 'foo');
           done();
         });
@@ -1319,7 +1300,7 @@ describe('SyncedDB', function() {
             ws.onmessage({data: JSON.stringify({
               type: 'reject',
               storeName: data.storeName,
-              key: data.record.key,
+              key: data.key,
             })});
           } else {
             ws.onmessage({data: JSON.stringify({
@@ -1354,7 +1335,7 @@ describe('SyncedDB', function() {
             ws.onmessage({data: JSON.stringify({
               type: 'reject',
               storeName: data.storeName,
-              key: data.record.key,
+              key: data.key,
             })});
           } else {
             ws.onmessage({data: JSON.stringify({
@@ -1391,8 +1372,7 @@ describe('SyncedDB', function() {
           }
         };
         db.syncContinuously('animals').then(function() {
-          db.animals.put({color: 'grey', name: 'Mister'})
-          .then(function() {
+          db.animals.put({color: 'grey', name: 'Mister'}).then(function() {
             var secondSend = JSON.parse(sendSpy.getCall(1).args[0]);
             assert.equal(secondSend.type, 'create');
             assert.equal(secondSend.record.color, 'grey');
@@ -1412,7 +1392,7 @@ describe('SyncedDB', function() {
             ws.onmessage({data: JSON.stringify({
               type: 'ok',
               storeName: 'animals',
-              key: msg.key || msg.record.key,
+              key: msg.key,
               timestamp: timestamp++,
               newVersion: (msg.version + 1) || 0,
             })});
@@ -1428,12 +1408,9 @@ describe('SyncedDB', function() {
             var secondSend = JSON.parse(sendSpy.getCall(1).args[0]);
             assert.equal(secondSend.type, 'create');
             assert.deepEqual(secondSend.record, {
-              color: 'grey', name: 'Mister', key: cat.key
+              color: 'grey', name: 'Mister',
             });
-            console.log(secondSend);
             var thirdSend = JSON.parse(sendSpy.getCall(2).args[0]);
-            console.log('thirdSend');
-            console.log(thirdSend);
             assert.equal(thirdSend.type, 'update');
             assert.equal(thirdSend.diff.m[1], 'white');
             done();
