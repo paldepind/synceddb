@@ -4,15 +4,6 @@ Promise.promisifyAll(mysql);
 Promise.promisifyAll(require('mysql/lib/Connection').prototype);
 Promise.promisifyAll(require('mysql/lib/Pool').prototype);
 
-/*
-function getClient(p) {
-  return pg.connectAsync(p.conString).spread(function(client, done) {
-    client.close = done;
-    return client;
-  });
-}
-*/
-
 function getNewKey(con) {
   return con.queryAsync(
     'SELECT MAX(`key`) AS `max` FROM synceddb_changes'
@@ -50,10 +41,8 @@ function processChange(con, change) {
 mysqlPersistence.prototype.saveChange = function(change) {
   var con = this.connection;
   var newKey;
-  var changeStr = JSON.stringify(change);
   return processChange(con, change).then(function(change) {
-    console.log('saveChange');
-    console.log(change);
+    var changeStr = JSON.stringify(change);
     return con.queryAsync(
       'INSERT INTO synceddb_changes (`key`, `storename`, `data`) ' +
       'VALUES (?, ?, ?)',
@@ -72,7 +61,6 @@ mysqlPersistence.prototype.getChanges = function(req) {
     'SELECT * FROM synceddb_changes WHERE storename = ? AND timestamp > ?',
     [req.storeName, since]
   ).spread(function(res) {
-    console.log(res);
     return res.map(function(r) {
       r.data = JSON.parse(r.data);
       r.data.timestamp = r.timestamp;

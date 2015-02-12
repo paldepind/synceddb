@@ -23,36 +23,66 @@ function pgPersistence(opts) {
     client = c;
     return client.queryAsync(
       'CREATE TABLE IF NOT EXISTS synceddb_changes' +
-      '(timestamp serial, key INTEGER NOT NULL, storename TEXT NOT NULL, data JSON NOT NULL)'
+      '(timestamp serial, ' +
+      'key INTEGER NOT NULL, ' +
+      'storename TEXT NOT NULL, ' +
+      'type TEXT NOT NULL,' +
+      'data JSON NOT NULL)'
     );
   }).then(function() {
     client.close();
   });
 }
 
+var requiredProps = {
+  create: ['type', 'storeName', 'record'],
+  update: ['type', 'storeName', 'version', 'diff', 'key'],
+  delete: ['type', 'storeName', 'key', 'version'],
+};
+
+var validateChange = function(c) {
+  if (!(c.type in requiredProps)) {
+    throw new Error('Change type ' + c.type + ' is invalid');
+  }
+  requiredProps[c.type].forEach(function(p) {
+    if (!(p in c)) {
+      throw new Error('Change of type ' + c.type + ' misses property ' + p);
+    }
+  });
+};
+
+var processChange = {
+  create: function(change, data, client) {
+    change.version = 0;
+    data.version = 0;
+    data.record = change.record;
+    return getNewKey(client).then(function(nK) {
+      change.record.key = nK;
+      change.key = nK;
+    });
+  },
+  update: function(change, data, client) {
+    data.diff = change.diff;
+    change.version++;
+    data.version = change.version;
+  },
+  delete: function(change, data, client) {
+    change.version++;
+    data.version = change.version;
+  },
+};
+
 pgPersistence.prototype.saveChange = function(change) {
-  var client, newKey;
+  var client;
+  var data = {};
   return getClient(this).then(function(c) {
     client = c;
-    if (change.type === 'create') {
-      change.version = 0;
-      return getNewKey(client);
-    } else {
-      change.version++;
-      return undefined;
-    }
-  }).then(function(nK) {
-    newKey = nK;
-    if (newKey !== undefined) {
-      change.record.key = newKey;
-      change.key = newKey;
-    }
-    change.version = 0;
-    console.log(change);
+    return processChange[change.type](change, data, client);
+  }).then(function() {
     return client.queryAsync(
-      'INSERT INTO synceddb_changes (key, storename, data)' +
-      'VALUES ($1, $2, $3) RETURNING timestamp',
-      [change.key, change.storeName, change]
+      'INSERT INTO synceddb_changes (key, storename, type, data)' +
+      'VALUES ($1, $2, $3, $4) RETURNING timestamp',
+      [change.key, change.storeName, change.type, data]
     );
   }).then(function(res) {
     client.close();
@@ -73,7 +103,10 @@ pgPersistence.prototype.getChanges = function(req) {
   }).then(function(result) {
     client.close();
     return result.rows.map(function(r) {
+      r.data.key = r.key;
       r.data.timestamp = r.timestamp;
+      r.data.storeName = r.storename;
+      r.data.type = r.type;
       return r.data;
     });
   });

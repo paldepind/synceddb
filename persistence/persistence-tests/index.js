@@ -13,7 +13,6 @@ function testPersistence(Persistence) {
       return store.saveChange({
         type: 'create',
         storeName: 'animals',
-        clientId: 1,
         record: {name: 'Thumper', key: 1},
       }).then(function(change) {
         assert.notEqual(change.timestamp, undefined);
@@ -25,7 +24,7 @@ function testPersistence(Persistence) {
         type: 'update',
         storeName: 'animals',
         clientId: 1,
-        record: {name: 'Thumper', key: 1},
+        diff: {m: {'3': true}},
         version: 0,
         key: 1,
       }).then(function(change) {
@@ -34,21 +33,45 @@ function testPersistence(Persistence) {
       });
     });
     it('can save and get change to store', function() {
+      var key;
       return store.saveChange({
         type: 'create',
-        storeName: 'animals',
-        clientId: 1,
-        record: {name: 'Thumper', key: 1},
+        storeName: 'tasks',
+        record: {
+           description: 'Fix bug',
+           finished: false,
+           createdAt: 1423685389538,
+        },
+        key: 0,
+      }).then(function(change) {
+        key = change.key;
+        var version = change.version;
+        return store.saveChange({
+          type: 'update',
+          storeName: 'tasks',
+          diff: { m: { '3': true } },
+          key: key,
+          version: version,
+        });
       }).then(function() {
         return store.getChanges({
           since: null,
-          clientId: 2,
-          storeName: 'animals',
+          storeName: 'tasks',
         });
       }).then(function(result) {
-        assert.equal(result.length, 1);
+        assert.equal(result.length, 2);
+        assert.equal(result[0].type, 'create');
+        assert.equal(result[0].storeName, 'tasks');
+        assert.notEqual(result[0].record, undefined);
         assert.notEqual(result[0].timestamp, undefined);
-        assert.equal(result[0].record.name, 'Thumper');
+        assert.notEqual(result[0].version, undefined);
+        assert.equal(result[0].record.description, 'Fix bug');
+        assert.equal(result[1].type, 'update');
+        assert.equal(result[1].storeName, 'tasks');
+        assert.notEqual(result[0].timestamp, undefined);
+        assert.notEqual(result[1].diff, undefined);
+        assert.equal(result[1].key, key);
+        assert.notEqual(result[1].version, undefined);
       });
     });
   });
