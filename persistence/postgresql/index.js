@@ -35,23 +35,6 @@ function pgPersistence(opts) {
   });
 }
 
-var requiredProps = {
-  create: ['type', 'storeName', 'record'],
-  update: ['type', 'storeName', 'version', 'diff', 'key'],
-  delete: ['type', 'storeName', 'key', 'version'],
-};
-
-var validateChange = function(c) {
-  if (!(c.type in requiredProps)) {
-    throw new Error('Change type ' + c.type + ' is invalid');
-  }
-  requiredProps[c.type].forEach(function(p) {
-    if (!(p in c)) {
-      throw new Error('Change of type ' + c.type + ' misses property ' + p);
-    }
-  });
-};
-
 var processChange = {
   create: function(change, data, client) {
     change.version = 0;
@@ -60,11 +43,11 @@ var processChange = {
       change.key = nK;
     });
   },
-  update: function(change, data, client) {
+  update: function(change, data) {
     data.diff = change.diff;
     change.version++;
   },
-  delete: function(change, data, client) {
+  delete: function(change, data) {
     change.version++;
   },
 };

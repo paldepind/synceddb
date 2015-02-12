@@ -19,34 +19,42 @@ function mysqlPersistence(opts) {
     'CREATE TABLE IF NOT EXISTS `synceddb_changes` ' +
     '(`timestamp` INT NOT NULL AUTO_INCREMENT PRIMARY KEY, ' +
     '`key` INT NOT NULL, ' +
+    '`version` INT NOT NULL, ' +
     '`storename` VARCHAR(255) NOT NULL, ' +
+    '`type` TEXT NOT NULL, ' +
+    //'`type` ENUM("create", "update", "delete") NOT NULL, ' +
     '`data` TEXT NOT NULL)'
   );
 }
 
-function processChange(con, change) {
-  if (change.type === 'create') {
+var processChange = {
+  create: function(change, data, con) {
     change.version = 0;
-    return getNewKey(con).then(function(newKey) {
-      change.record.key = newKey;
-      change.key = newKey;
-      return change;
+    data.record = change.record;
+    return getNewKey(con).then(function(nK) {
+      change.key = nK;
     });
-  } else {
+  },
+  update: function(change, data) {
+    data.diff = change.diff;
     change.version++;
-    return Promise.resolve(change);
-  }
-}
+    return Promise.resolve();
+  },
+  delete: function(change, data) {
+    change.version++;
+    return Promise.resolve();
+  },
+};
 
 mysqlPersistence.prototype.saveChange = function(change) {
+  var data = {};
   var con = this.connection;
-  var newKey;
-  return processChange(con, change).then(function(change) {
-    var changeStr = JSON.stringify(change);
+  return processChange[change.type](change, data, con).then(function() {
+    var dataStr = JSON.stringify(data);
     return con.queryAsync(
-      'INSERT INTO synceddb_changes (`key`, `storename`, `data`) ' +
-      'VALUES (?, ?, ?)',
-      [change.key, change.storeName, changeStr]
+      'INSERT INTO synceddb_changes (`key`, version, storename, type, data) ' +
+      'VALUES (?, ?, ?, ?, ?)',
+      [change.key, change.version, change.storeName, change.type, dataStr]
     );
   }).then(function(res) {
     change.timestamp = res[0].insertId;
@@ -63,7 +71,11 @@ mysqlPersistence.prototype.getChanges = function(req) {
   ).spread(function(res) {
     return res.map(function(r) {
       r.data = JSON.parse(r.data);
+      r.data.key = r.key;
       r.data.timestamp = r.timestamp;
+      r.data.storeName = r.storename;
+      r.data.type = r.type;
+      r.data.version = r.version;
       return r.data;
     });
   });
