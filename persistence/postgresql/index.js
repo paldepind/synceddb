@@ -17,22 +17,7 @@ function getNewKey(client) {
 }
 
 function pgPersistence(opts) {
-  var client;
   this.conString = opts.conString;
-  getClient(this).then(function(c) {
-    client = c;
-    return client.queryAsync(
-      'CREATE TABLE IF NOT EXISTS synceddb_changes' +
-      '(timestamp serial, ' +
-      'key INTEGER NOT NULL, ' +
-      'version INTEGER NOT NULL, ' +
-      'storename TEXT NOT NULL, ' +
-      'type TEXT NOT NULL,' +
-      'data JSON NOT NULL)'
-    );
-  }).then(function() {
-    client.close();
-  });
 }
 
 var processChange = {
@@ -109,4 +94,23 @@ pgPersistence.prototype.resetChanges = function(change) {
   });
 };
 
-module.exports = pgPersistence;
+function create(opts) {
+  var p = new pgPersistence(opts), client;
+  return getClient(p).then(function(c) {
+    client = c;
+    return client.queryAsync(
+      'CREATE TABLE IF NOT EXISTS synceddb_changes' +
+      '(timestamp serial, ' +
+      'key INTEGER NOT NULL, ' +
+      'version INTEGER NOT NULL, ' +
+      'storename TEXT NOT NULL, ' +
+      'type TEXT NOT NULL,' +
+      'data JSON NOT NULL)'
+    );
+  }).then(function() {
+    client.close();
+    return p;
+  });
+}
+
+exports.create = create;

@@ -1,5 +1,9 @@
 var Promise = require('bluebird');
 
+function create() {
+  return Promise.resolve(new MemoryPersistence());
+}
+
 function MemoryPersistence() {
   this.changes = {};
 }
@@ -36,4 +40,4 @@ MemoryPersistence.prototype.resetChanges = function() {
   return Promise.resolve();
 };
 
-module.exports = MemoryPersistence;
+exports.create = create;

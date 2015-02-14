@@ -12,10 +12,9 @@ function getNewKey(con) {
   });
 }
 
-function mysqlPersistence(opts) {
-  this.connection = mysql.createConnection(opts);
-  this.connection.connect();
-  this.connection.queryAsync(
+function create(opts) {
+  var p = new mysqlPersistence(opts);
+  return p.connection.queryAsync(
     'CREATE TABLE IF NOT EXISTS `synceddb_changes` ' +
     '(`timestamp` INT NOT NULL AUTO_INCREMENT PRIMARY KEY, ' +
     '`key` INT NOT NULL, ' +
@@ -24,7 +23,12 @@ function mysqlPersistence(opts) {
     '`type` TEXT NOT NULL, ' +
     //'`type` ENUM("create", "update", "delete") NOT NULL, ' +
     '`data` TEXT NOT NULL)'
-  );
+  ).then(function() { return p; });
+}
+
+function mysqlPersistence(opts) {
+  this.connection = mysql.createConnection(opts);
+  this.connection.connect();
 }
 
 var processChange = {
@@ -91,4 +95,4 @@ mysqlPersistence.prototype.resetChanges = function(change) {
   });
 };
 
-module.exports = mysqlPersistence;
+exports.create = create;

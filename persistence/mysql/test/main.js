@@ -8,4 +8,4 @@ var opts = {
   database: 'synceddb',
 };
 
-Tests.testPersistence(mysqlPersistence.bind(null, opts));
+Tests.testPersistence(mysqlPersistence.create.bind(null, opts));

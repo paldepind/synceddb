@@ -1,10 +1,12 @@
 var assert = require('assert');
 
-function testPersistence(Persistence) {
+function testPersistence(create) {
   describe('Persistence', function() {
     var store;
     beforeEach(function() {
-      return (store = new Persistence());
+      return  create().then(function(s) {
+        store = s;
+      });
     });
     afterEach(function() {
       return store.resetChanges();

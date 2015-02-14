@@ -5,4 +5,4 @@ var opts = {
   conString: 'postgres://postgres@localhost/synceddb',
 };
 
-Tests.testPersistence(pgPersistence.bind(null, opts));
+Tests.testPersistence(pgPersistence.create.bind(null, opts));
