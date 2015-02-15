@@ -29,6 +29,6 @@
     "mysql": "^2.5.4"
   },
   "devDependencies": {
-    "synceddb-persistence-tests": "0.0.1"
+    "synceddb-persistence-tests": "0.0.2"
   }
 }

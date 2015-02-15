@@ -1,6 +1,6 @@
 {
   "name": "synceddb-persistence-tests",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Persistence test suite for SyncedDB persistence providers.",
   "main": "index.js",
   "scripts": {

@@ -18,6 +18,7 @@ function testPersistence(create) {
         record: {name: 'Thumper'},
         key: 1,
       }).then(function(change) {
+        assert.notEqual(change.key, undefined);
         assert.notEqual(change.timestamp, undefined);
         assert.notEqual(change.version, undefined);
       });
@@ -75,6 +76,30 @@ function testPersistence(create) {
         assert.notEqual(result[1].diff, undefined);
         assert.equal(result[1].key, key);
         assert.notEqual(result[1].version, undefined);
+      });
+    });
+    it('only returns changes after timestamp', function() {
+      var key;
+      var secondChangeTimestamp;
+      var change = {
+        type: 'create',
+        storeName: 'animals',
+        record: { name: 'Thumper' },
+        key: 0,
+      };
+      return store.saveChange(change)
+      .then(function() {
+        return store.saveChange(change);
+      }).then(function(change) {
+        secondChangeTimestamp = change.timestamp;
+        return store.saveChange(change);
+      }).then(function() {
+        return store.getChanges({
+          since: secondChangeTimestamp,
+          storeName: 'animals',
+        });
+      }).then(function(result) {
+        assert.equal(result.length, 1);
       });
     });
   });

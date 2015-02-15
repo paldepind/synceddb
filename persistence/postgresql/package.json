@@ -29,6 +29,6 @@
     "pg": "^4.2.0"
   },
   "devDependencies": {
-    "synceddb-persistence-tests": "0.0.1"
+    "synceddb-persistence-tests": "0.0.2"
   }
 }
