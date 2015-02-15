@@ -64,12 +64,25 @@ Main features
   authentication, authorization, etc. Plug in any database you like and store data
   any way you want alongside the format that SyncedDB uses internally.
 
-Major missing features
+Storage options
+---------------
+
+SyncedDB makes it easy to use different server side persistence strategies. These
+are easy to write (take a look at the existing options) and a test suite is
+provided.
+
+Currently persistence options based on the following databases are provided:
+ 
+* In memory (for developing)
+* MySQL
+* PostgreSQL
+* CouchDB
+
+Todo
 ----------------
 * API for IndexedDB cursors
-* More persistence options – currently only PostreSQL and in memory (for developing)
-  is supported. These are easy to write though! Check out the existing ones, start
-  from there and make sure they passes the persistence test suite.
+* Handle terminated connections with the server
+* Add more documentation and additional examples
 
 Example
 -------
