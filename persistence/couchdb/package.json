@@ -1,0 +1,33 @@
+{
+  "name": "synceddb-persistence-couchddb",
+  "version": "0.0.1",
+  "description": "Persistence module for SyncedDB using CouchdDB for storage",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/paldepind/synceddb"
+  },
+  "keywords": [
+    "synceddb",
+    "couchddb"
+  ],
+  "author": "Simon Friis Vindum",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/paldepind/synceddb/issues"
+  },
+  "homepage": "https://github.com/paldepind/synceddb",
+  "dependencies": {
+    "bluebird": "^2.9.3"
+  },
+  "devDependencies": {
+    "request": "^2.53.0",
+    "synceddb-persistence-tests": "0.0.2"
+  }
+}

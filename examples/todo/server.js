@@ -21,9 +21,17 @@ var mysqlOpts = {
   database: 'synceddb',
 };
 
+// Persistence with CouchDB
+//var mysqlPersistence = require('synceddb-persistence-couchdb');
+var couchdbPersistence = require('../../persistence/couchdb');
+var couchdbOpts = {
+  dbUrl: 'http://synceddb:mypass@localhost:5984/synceddb/',
+};
+
 memoryPersistence.create().then(function(p) {
 //pgPersistence.create(pgOpts).then(function(p) {
 //mysqlPersistence.create(mysqlOpts).then(function(p) {
+//couchdbPersistence.create(couchdbOpts).then(function(p) {
   var server = new Server({
     port: 8080,
     store: p,
