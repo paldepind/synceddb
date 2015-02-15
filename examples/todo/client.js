@@ -24,7 +24,7 @@
       console.log(e);
       tasks.forEach(function(task) {
         if (task.record.key === e.record.key) {
-          task.record = e.record;
+          task.record.finished = e.record.finished;
           updateTaskElm(task.elm, task.record);
         }
       });
