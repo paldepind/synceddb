@@ -3,13 +3,7 @@ var WebSocketServer = require('ws').Server;
 
 var handleCreateMsg = function(clientData, store, msg, respond, broadcast) {
   var originalKey = msg.key;
-  var change = {
-    type: 'create',
-    storeName: msg.storeName,
-    record: msg.record,
-    key: originalKey,
-  };
-  store.saveChange(change).then(function(change) {
+  store.saveChange(msg).then(function(change) {
     var newKey = originalKey !== change.key ? change.key : undefined;
     respond({
       type: 'ok',
@@ -24,14 +18,7 @@ var handleCreateMsg = function(clientData, store, msg, respond, broadcast) {
 };
 
 var handleUpdateMsg = function(clientData, store, msg, respond, broadcast) {
-  var change = {
-    type: 'update',
-    storeName: msg.storeName,
-    diff: msg.diff,
-    key: msg.key,
-    version: msg.version,
-  };
-  store.saveChange(change).then(function(change) {
+  store.saveChange(msg).then(function(change) {
     respond({
       type: 'ok',
       storeName: change.storeName,
@@ -44,13 +31,7 @@ var handleUpdateMsg = function(clientData, store, msg, respond, broadcast) {
 };
 
 var handleDeleteMsg = function(clientData, store, msg, respond, broadcast) {
-  var change = {
-    type: 'delete',
-    storeName: msg.storeName,
-    key: msg.key,
-    version: msg.version,
-  };
-  store.saveChange(change).then(function(change) {
+  store.saveChange(msg).then(function(change) {
     respond({
       type: 'ok',
       storeName: msg.storeName,
