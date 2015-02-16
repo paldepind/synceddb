@@ -15,7 +15,7 @@ Opens a new or existing database.
 
 __Arguments__
 
-* `options` (object): The options object is an object with the following properties
+* `options` (object): The options to the server. Properties:
   * `name` (string) - the name of the database to open.
   * `version` (number) - the version of the database to open.
   * `stores` (object) - An object declaring the stores in the database and their indexes.
