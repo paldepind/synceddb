@@ -1,0 +1,22 @@
+{
+  "name": "synceddb-todo-example",
+  "version": "1.0.0",
+  "description": "",
+  "main": "client.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "keywords": [
+    "synceddb",
+    "todo",
+    "example"
+  ],
+  "author": "Simon Friis Vindum",
+  "license": "MIT",
+  "dependencies": {
+    "synceddb-client": "latest",
+    "synceddb-persistence-memory": "latest",
+    "synceddb-server": "latest"
+  }
+}

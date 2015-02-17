@@ -152,6 +152,9 @@ Examples
 * [Authencation](https://github.com/paldepind/synceddb/blob/master/examples/authentication).
   Shows how the protocol between the server and the client can be extended to
   facilitate authentication.
+* [Counters app](https://github.com/paldepind/synceddb/blob/master/examples/counters).
+  Showcases a potential conflict handling strategy where numeric changes are treated
+  as differences/deltas.
 
 Documentation
 -----------------
