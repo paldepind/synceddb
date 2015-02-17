@@ -242,22 +242,17 @@ function copyRecord(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
-function stripLocalMeta(record) {
-  delete record.remoteOriginal;
-  delete record.version;
-  delete record.changedSinceSync;
-  return record;
+function copyWithoutMeta(rec) {
+  var r = copyRecord(rec);
+  delete r.remoteOriginal;
+  delete r.version;
+  delete r.changedSinceSync;
+  return r;
 }
 
-function copyWithoutMeta(r) {
-  return stripLocalMeta(copyRecord(r));
-}
-
-function extractKey(k) {
-  k = isKey(k) ? k
-    : isObject(k) && isKey(k.key) ? k.key
-    : undefined;
-  if (isUndef(k)) throw new TypeError(k + ' is not a valid key');
+function extractKey(pk) {
+  var k = isObject(pk) ? pk.key : pk;
+  if (!isKey(k)) throw new TypeError(k + ' is not a valid key');
   return k;
 }
 
@@ -316,7 +311,7 @@ function handleVersionChange(e) {
   // The database is being deleted or opened with
   // a newer version, possibly in another tab
   e.target.close();
-};
+}
 
 var SDBIndex = function(name, db, store) {
   this.name = name;
@@ -653,29 +648,15 @@ SDBDatabase.prototype.write = function() {
   return this.transaction(args, 'rw', fn);
 };
 
-var getRecordsChangedSinceSync = function(db, storeNames) {
-  var records = [];
-  return db.transaction(storeNames, 'r', function() {
-    var stores = toArray(arguments);
-    stores.forEach(function(store) {
-      store.changedSinceSync.get(1).then(function(rs) {
-        rs.forEach(function(r) {
-          records.push({record: r, storeName: store.name});
-        });
-      });
-    });
-  }).then(function() { return records; });
-};
-
 var createMsg = function(storeName, record) {
   var r = copyWithoutMeta(record);
   delete r.key;
-  return JSON.stringify({
+  return {
     type: 'create',
     storeName: storeName,
     record: r,
     key: record.key,
-  });
+  };
 };
 
 var updateMsg = function(storeName, record) {
@@ -685,22 +666,22 @@ var updateMsg = function(storeName, record) {
   remoteOriginal.changedSinceSync = 1;
   var diff = dffptch.diff(remoteOriginal, record);
   record.remoteOriginal = remoteOriginal;
-  return JSON.stringify({
+  return {
     type: 'update',
     storeName: storeName,
     version: record.version,
     diff: diff,
     key: record.key,
-  });
+  };
 };
 
 var deleteMsg = function(storeName, record) {
-  return JSON.stringify({
+  return {
     type: 'delete',
     storeName: storeName,
     key: record.key,
     version: record.version,
-  });
+  };
 };
 
 function sendChangeToRemote(ws, storeName, record) {
@@ -751,8 +732,6 @@ var handleIncomingMessageByType = {
   'update': function(db, ws, msg) {
     handleRemoteChange(db, msg.storeName, function(store, metaStore) {
       doGet(store.IDBStore, msg.key, true).then(function(local) {
-        console.log('Trying to update');
-        console.log(msg);
         if (local.changedSinceSync === 1) { // Conflict
           var original = local.remoteOriginal;
           var remote = copyRecord(original);
@@ -848,15 +827,26 @@ function doPullFromRemote(ctx) {
   });
 }
 
+function sendRecordsChangedSinceSync(ctx) {
+  return ctx.db.transaction(ctx.storeNames, 'r', function() {
+    var stores = toArray(arguments);
+    var gets = stores.map(function(store) { 
+      return store.changedSinceSync.get(1);
+    });
+    SyncPromise.all(gets).then(function(results) {
+      var total = results.reduce(function(sum, recs, i) {
+        recs.forEach(partial(sendChangeToRemote, ctx.db.ws, stores[i].name));
+        return sum + recs.length;
+      }, 0);
+      ctx.db.recordsToSync.add(total);
+    });
+  });
+}
+
 function doPushToRemote(ctx) {
   return new Promise(function(resolve, reject) {
     ctx.db.recordsToSync.onZero = partial(resolve, ctx);
-    getRecordsChangedSinceSync(ctx.db, ctx.storeNames).then(function(records) {
-      ctx.db.recordsToSync.add(records.length);
-      records.forEach(function(res) {
-        sendChangeToRemote(ctx.db.ws, res.storeName, res.record);
-      });
-    });
+    sendRecordsChangedSinceSync(ctx);
   });
 }
 
