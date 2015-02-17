@@ -210,26 +210,9 @@ function eachKeyVal(obj, fn) {
   Object.keys(obj).forEach(function(key) { fn(key, obj[key]); });
 }
 
-function copyRecord(obj) {
-  return JSON.parse(JSON.stringify(obj));
-}
-
-function stripLocalMeta(record) {
-  delete record.remoteOriginal;
-  delete record.version;
-  delete record.changedSinceSync;
-  return record;
-}
-
 function partial() {
   return Function.bind.apply(arguments[0], arguments);
 }
-
-var handleVersionChange = function(e) {
-  // The database is being deleted or opened with
-  // a newer version, possibly in another tab
-  e.target.close();
-};
 
 function isObject(o) {
   return o !== null && typeof o === 'object';
@@ -253,6 +236,21 @@ function isUndef(x) {
 
 function isKey(k) {
   return isString(k) || isNum(k);
+}
+
+function copyRecord(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
+function stripLocalMeta(record) {
+  delete record.remoteOriginal;
+  delete record.version;
+  delete record.changedSinceSync;
+  return record;
+}
+
+function copyWithoutMeta(r) {
+  return stripLocalMeta(copyRecord(r));
 }
 
 function extractKey(k) {
@@ -312,6 +310,12 @@ WrappedSocket.prototype.send = function(msg) {
 
 WrappedSocket.prototype.close = function() {
   this.ws.close.apply(this.ws, arguments);
+};
+
+function handleVersionChange(e) {
+  // The database is being deleted or opened with
+  // a newer version, possibly in another tab
+  e.target.close();
 };
 
 var SDBIndex = function(name, db, store) {
@@ -455,7 +459,7 @@ function doPutRecord(store, record) {
       doGet(store.IDBStore, record.key).then(function(oldRecord) {
         record.version = oldRecord.version;
         if (oldRecord.changedSinceSync === 0) {
-          record.remoteOriginal = stripLocalMeta(copyRecord(oldRecord));
+          record.remoteOriginal = copyWithoutMeta(oldRecord);
         }
         putValToStore(store, record, 'LOCAL').then(resolve);
       });
@@ -500,15 +504,24 @@ function insertValInStore(method, store, val, origin) {
   });
 }
 
+var putValToStore = partial(insertValInStore, 'put');
+var addRecToStore = partial(insertValInStore, 'add');
+
+function createTombstone(r) {
+  return {
+    version: r.version,
+    key: r.key,
+    changedSinceSync: 1,
+    deleted: true,
+    remoteOriginal: r.remoteOriginal || copyWithoutMeta(r),
+  };
+}
+
 function deleteFromStore(store, key, origin) {
   var IDBStore = store.IDBStore;
   return new SyncPromise(function(resolve, reject) {
     doGet(IDBStore, key, true).then(function(record) {
-      var tombstone = {
-        version: record.version, key: record.key,
-        changedSinceSync: 1, deleted: true,
-        remoteOriginal: record.remoteOriginal || stripLocalMeta(copyRecord(record)),
-      };
+      var tombstone = createTombstone(record);
       store.changedRecords.push({type: 'delete', origin: origin, record: tombstone});
       if ((record.changedSinceSync === 1 && !record.remoteOriginal)
           || origin === 'REMOTE') {
@@ -520,9 +533,6 @@ function deleteFromStore(store, key, origin) {
     });
   });
 }
-
-var putValToStore = partial(insertValInStore, 'put');
-var addRecToStore = partial(insertValInStore, 'add');
 
 var createKeyRange = function(r) {
   var gt   = 'gt' in r,
@@ -620,8 +630,8 @@ SDBDatabase.prototype.transaction = function(storeNames, mode, fn) {
        : mode === 'rw'   ? 'readwrite'
                          : mode;
   var db = this;
-  return new Promise(function(resolve, reject) {
-    db.then(function(res) {
+  return db.then(function(res) {
+    return new Promise(function(resolve, reject) {
       var tx = db.db.transaction(storeNames, mode);
       var stores = storeNames.map(function(s) {
         var store = s === 'sdbMetaData' ? db[s] : db.stores[s];
@@ -658,16 +668,14 @@ var getRecordsChangedSinceSync = function(db, storeNames) {
 };
 
 var createMsg = function(storeName, record) {
-  var r = copyRecord(record);
-  stripLocalMeta(r);
+  var r = copyWithoutMeta(record);
   delete r.key;
-  var msg = {
+  return JSON.stringify({
     type: 'create',
     storeName: storeName,
     record: r,
     key: record.key,
-  };
-  return JSON.stringify(msg);
+  });
 };
 
 var updateMsg = function(storeName, record) {
@@ -742,18 +750,22 @@ var handleIncomingMessageByType = {
   },
   'update': function(db, ws, msg) {
     handleRemoteChange(db, msg.storeName, function(store, metaStore) {
-      doGet(store.IDBStore, msg.key, true).then(function(record) {
-        if (record.changedSinceSync === 1) { // Conflict
-          var original = record.remoteOriginal;
-          var local = stripLocalMeta(record);
+      doGet(store.IDBStore, msg.key, true).then(function(local) {
+        console.log('Trying to update');
+        console.log(msg);
+        if (local.changedSinceSync === 1) { // Conflict
+          var original = local.remoteOriginal;
           var remote = copyRecord(original);
+          remote.version = local.version;
+          remote.changedSinceSync = 1;
           dffptch.patch(remote, msg.diff);
+          local.remoteOriginal = remote;
           var resolved = db.stores[msg.storeName].handleConflict(original, local, remote);
           return putValToStore(store, resolved, 'LOCAL');
         } else {
-          dffptch.patch(record, msg.diff);
-          record.version = msg.version;
-          return putValToStore(store, record, 'REMOTE');
+          dffptch.patch(local, msg.diff);
+          local.version = msg.version;
+          return putValToStore(store, local, 'REMOTE');
         }
       }).then(function() {
         updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
@@ -762,11 +774,11 @@ var handleIncomingMessageByType = {
   },
   'delete': function(db, ws, msg) {
     handleRemoteChange(db, msg.storeName, function(store, metaStore) {
-      doGet(store.IDBStore, msg.key, true).then(function(record) {
-        if (record.changedSinceSync === 1 && !record.deleted) {
-          var original = record.remoteOriginal;
-          var local = stripLocalMeta(record);
+      doGet(store.IDBStore, msg.key, true).then(function(local) {
+        if (local.changedSinceSync === 1 && !local.deleted) {
+          var original = local.remoteOriginal;
           var remote = {deleted: true, key: msg.key};
+          local.remoteOriginal = remote;
           var resolved = db.stores[msg.storeName].handleConflict(original, local, remote);
           resolved.deleted ? deleteFromStore(store, msg.key, 'REMOTE')
                            : putValToStore(store, resolved, 'LOCAL');
@@ -839,8 +851,7 @@ function doPullFromRemote(ctx) {
 function doPushToRemote(ctx) {
   return new Promise(function(resolve, reject) {
     ctx.db.recordsToSync.onZero = partial(resolve, ctx);
-    getRecordsChangedSinceSync(ctx.db, ctx.storeNames)
-    .then(function(records) {
+    getRecordsChangedSinceSync(ctx.db, ctx.storeNames).then(function(records) {
       ctx.db.recordsToSync.add(records.length);
       records.forEach(function(res) {
         sendChangeToRemote(ctx.db.ws, res.storeName, res.record);

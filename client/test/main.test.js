@@ -1023,6 +1023,8 @@ describe('SyncedDB', function() {
         db.stores.roads.handleConflict = stub;
         onSend = function(raw) {
           var msg = JSON.parse(raw);
+          console.log('server recieved');
+          console.log(msg);
           if (msg.type === 'create') {
             ws.onmessage({data: JSON.stringify({
               type: 'ok',
@@ -1049,29 +1051,28 @@ describe('SyncedDB', function() {
               key: road.key,
               timestamp: 1,
               version: 1,
-              diff: {m: {1: 110}},
+              diff: {m: {2: 110}},
             })});
           }
         };
-        db.roads.put(road)
-        .then(function() {
+        db.roads.put(road).then(function() {
           return db.pushToRemote();
         }).then(function() {
           road.price = 2000;
           return db.roads.put(road);
         }).then(function() {
-          return db.pullFromRemote();
+          return db.pullFromRemote('roads');
         }).then(function() {
           assert(stub.calledOnce);
-          assert.deepEqual(stub.getCall(0).args[0], {
-            length: 100, price: 1337, key: road.key
-          });
-          assert.deepEqual(stub.getCall(0).args[1], {
-            length: 100, price: 2000, key: road.key
-          });
-          assert.deepEqual(stub.getCall(0).args[2], {
-            length: 110, price: 1337, key: road.key
-          });
+          var original = stub.getCall(0).args[0];
+          assert.equal(original.length, 100);
+          assert.equal(original.price, 1337);
+          var local = stub.getCall(0).args[1];
+          assert.equal(local.length, 100);
+          assert.equal(local.price, 2000);
+          var remote = stub.getCall(0).args[2];
+          assert.equal(remote.length, 110);
+          assert.equal(remote.price, 1337);
           done();
         });
       });
@@ -1100,7 +1101,7 @@ describe('SyncedDB', function() {
               key: road.key,
               timestamp: 1,
               version: 1,
-              diff: {m: {1: 110}},
+              diff: {m: {2: 110}},
             })});
           }
         };
@@ -1110,18 +1111,17 @@ describe('SyncedDB', function() {
         }).then(function() {
           return db.roads.delete(road);
         }).then(function() {
-          return db.pullFromRemote();
+          return db.pullFromRemote('roads');
         }).then(function() {
           assert(stub.calledOnce);
-          assert.deepEqual(stub.getCall(0).args[0], {
-            length: 100, price: 1337, key: road.key
-          });
-          assert.deepEqual(stub.getCall(0).args[1], {
-            deleted: true, key: road.key
-          });
-          assert.deepEqual(stub.getCall(0).args[2], {
-            length: 110, price: 1337, key: road.key
-          });
+          var original = stub.getCall(0).args[0];
+          assert.equal(original.length, 100);
+          assert.equal(original.price, 1337);
+          var local = stub.getCall(0).args[1];
+          assert.equal(local.deleted, true);
+          var remote = stub.getCall(0).args[2];
+          assert.equal(remote.length, 110);
+          assert.equal(remote.price, 1337);
           done();
         });
       });
@@ -1153,25 +1153,23 @@ describe('SyncedDB', function() {
             })});
           }
         };
-        db.roads.put(road)
-        .then(function() {
+        db.roads.put(road).then(function() {
           return db.pushToRemote();
         }).then(function() {
           road.length = 110;
           return db.roads.put(road);
         }).then(function() {
-          return db.pullFromRemote();
+          return db.pullFromRemote('roads');
         }).then(function() {
           assert(stub.calledOnce);
-          assert.deepEqual(stub.getCall(0).args[0], {
-            length: 100, price: 1337, key: road.key
-          });
-          assert.deepEqual(stub.getCall(0).args[1], {
-            length: 110, price: 1337, key: road.key
-          });
-          assert.deepEqual(stub.getCall(0).args[2], {
-            deleted: true, key: road.key
-          });
+          var original = stub.getCall(0).args[0];
+          assert.equal(original.length, 100);
+          assert.equal(original.price, 1337);
+          var local = stub.getCall(0).args[1];
+          assert.equal(local.length, 110);
+          assert.equal(local.price, 1337);
+          var remote = stub.getCall(0).args[2];
+          assert.equal(remote.deleted, true);
           done();
         });
       });
