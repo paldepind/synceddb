@@ -96,7 +96,7 @@ var server = new Server({
 Main features
 --------
 * No additional abstractions on top of IndexedDB. It exposes the same
-  raw power and performane but through a significantly more convenient API
+  raw power and performance but through a significantly more convenient API
 * Compact declarative store and index definitions with automatic upgrades
 * Uses promises for all async operations — even inside IndexedDB transactions
 * Synchronizes data through WebSockets and sends only compact diffs down the
