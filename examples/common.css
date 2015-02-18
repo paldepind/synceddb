@@ -1,0 +1,62 @@
+body {
+  font-family: sans-serif;
+  line-height: 1.5em;
+}
+* {
+  transition: .2s all ease;
+}
+.wrapper {
+  width: 100%;
+  max-width: 30em;
+  margin: 0 auto;
+}
+button, input {
+  border: 0;
+  font-size: 1em;
+}
+button {
+  color: white;
+  background: green;
+  padding: .5em 1em;
+  cursor: pointer;
+}
+.add-form {
+  width: 100%;
+  overflow: hidden;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.25);
+}
+.add-form span {
+  display: block;
+  overflow: hidden;
+  padding-right: 10px;
+}
+.add-form button {
+  float: right;
+}
+.add-form input {
+  width: 100%;
+  background: white;
+  padding: .5em;
+}
+.block-list {
+  list-style: none;
+  padding: 0;
+}
+.block-list li {
+  margin: .5em 0;
+  padding: .5em;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.25);
+}
+.block-list li span {
+  display: inline-block;
+  transform: translateX(0em);
+}
+.delete {
+  display: inline-block;
+  float: right;
+  padding: 0 0.17em;
+}
+.delete:hover {
+  background: rgb(234, 73, 73);
+  color: white;
+}
