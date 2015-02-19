@@ -230,8 +230,7 @@ SDBObjectStore.prototype.get = function(/* keys */) {
     SyncPromise.all(gets).then(function(records) {
       if (keys.length === records.length)
         resolve(keys.length == 1 ? records[0] : records);
-    })
-    .catch(function(err) { reject(err); });
+    }).catch(reject);
   });
 };
 
@@ -655,7 +654,7 @@ function doPullFromRemote(ctx) {
 function sendRecordsChangedSinceSync(ctx) {
   return ctx.db.transaction(ctx.storeNames, 'r', function() {
     var stores = toArray(arguments);
-    var gets = stores.map(function(store) { 
+    var gets = stores.map(function(store) {
       return store.changedSinceSync.get(1);
     });
     SyncPromise.all(gets).then(function(results) {

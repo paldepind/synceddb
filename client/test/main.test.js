@@ -1004,12 +1004,11 @@ describe('SyncedDB', function() {
             })});
           }
         };
-        db.roads.put(road)
-        .then(function(key) {
+        db.roads.put(road).then(function(key) {
           roadKey = road.key;
-          return db.pushToRemote();
+          return db.pushToRemote('roads');
         }).then(function() {
-          return db.pullFromRemote();
+          return db.pullFromRemote('roads');
         }).then(function() {
           return db.roads.get(roadKey);
         }).catch(function(err) {
@@ -1185,7 +1184,9 @@ describe('SyncedDB', function() {
               type: 'create',
               storeName: 'roads',
               timestamp: 0,
-              record: {version: 0, length: 133, price: 1000, key: 'foo'}
+              key: 'foo',
+              version: 0,
+              record: {length: 133, price: 1000}
             })});
           } else {
             ws.onmessage({data: JSON.stringify({
@@ -1194,8 +1195,7 @@ describe('SyncedDB', function() {
             })});
           }
         };
-        db.pullFromRemote('roads')
-        .then(function() {
+        db.pullFromRemote('roads').then(function() {
           return db.pullFromRemote('roads');
         }).then(function(road) {
           assert(sendSpy.calledTwice);
@@ -1277,7 +1277,9 @@ describe('SyncedDB', function() {
             type: 'create',
             storeName: 'roads',
             timestamp: 1,
-            record: {version: 0, length: 133, price: 1000, key: 'foo'}
+            key: 'foo',
+            version: 0,
+            record: {length: 133, price: 1000}
           })});
         };
         db.on('sync-initiated', spy);
@@ -1302,7 +1304,7 @@ describe('SyncedDB', function() {
             })});
           } else {
             ws.onmessage({data: JSON.stringify({
-              type: 'ok', storeName: 'roads', key: data.record.key, newVersion: 0, timestamp: timestamp++,
+              type: 'ok', storeName: 'roads', key: data.key, newVersion: 0, timestamp: timestamp++,
             })});
           }
         };
@@ -1337,7 +1339,7 @@ describe('SyncedDB', function() {
             })});
           } else {
             ws.onmessage({data: JSON.stringify({
-              type: 'ok', storeName: 'roads', key: data.record.key, newVersion: 0, timestamp: timestamp++,
+              type: 'ok', storeName: 'roads', key: data.key, newVersion: 0, timestamp: timestamp++,
             })});
           }
         };

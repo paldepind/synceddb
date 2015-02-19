@@ -66,7 +66,7 @@ function isPromise(p) {
 }
 
 // States
-var PENDING = 3,
+var PENDING = 2,
     FULFILLED = 0, // We later abuse these as array indices
     REJECTED = 1;
 
@@ -75,18 +75,23 @@ function SyncPromise(fn) {
   self.v = 0; // Value, this will be set to either a resolved value or rejected reason
   self.s = PENDING; // State of the promise
   self.c = [[],[]]; // Callbacks c[0] is fulfillment and c[1] is rejection callbacks
+  self.a = false; // Has the promise been resolved synchronously
+  var syncResolved = true;
   function transist(val, state) {
+    self.a = syncResolved;
     self.v = val;
     self.s = state;
+    if (state === REJECTED && !self.c[state].length) {
+      throw val;
+    }
     self.c[state].forEach(function(fn) { fn(val); });
-    self.c = null; // Free memory.
+    self.c = null; // Release memory.
   }
   function resolve(val) {
     if (!self.c) {
       // Already resolved, do nothing.
     } else if (isPromise(val)) {
-      val.then(resolve);
-      val.catch(reject);
+      val.then(resolve).catch(reject);
     } else {
       transist(val, FULFILLED);
     }
@@ -95,31 +100,22 @@ function SyncPromise(fn) {
     if (!self.c) {
       // Already resolved, do nothing.
     } else if (isPromise(reason)) {
-      reason.then(reject);
-      reason.catch(reject);
+      reason.then(reject).catch(reject);
     } else {
       transist(reason, REJECTED);
     }
   }
-  try {
-    fn(resolve, reject);
-  } catch (reason) {
-    reject(reason);
-  }
+  fn(resolve, reject);
+  syncResolved = false;
 }
-
-SyncPromise.resolve = function(v) {
-  return isPromise(v) ? v : new SyncPromise(function(res) { res(v); });
-};
-
-SyncPromise.reject = function(v) {
-  return isPromise(v) ? v : new SyncPromise(function(_, rej) { rej(v); });
-};
 
 var prot = SyncPromise.prototype;
 
 prot.then = function(cb) {
   var self = this;
+  if (self.a) { // Promise has been resolved synchronously
+    throw new Error('Can not call then on synchonously resolved promise');
+  }
   return new SyncPromise(function(resolve, reject) {
     function settle() {
       try {
@@ -141,6 +137,9 @@ prot.then = function(cb) {
 
 prot.catch = function(cb) {
   var self = this;
+  if (self.a) { // Promise has been resolved synchronously
+    throw new Error('Can not call catch on synchonously resolved promise');
+  }
   return new SyncPromise(function(resolve, reject) {
     function settle() {
       try {
@@ -407,8 +406,7 @@ SDBObjectStore.prototype.get = function(/* keys */) {
     SyncPromise.all(gets).then(function(records) {
       if (keys.length === records.length)
         resolve(keys.length == 1 ? records[0] : records);
-    })
-    .catch(function(err) { reject(err); });
+    }).catch(reject);
   });
 };
 
@@ -832,7 +830,7 @@ function doPullFromRemote(ctx) {
 function sendRecordsChangedSinceSync(ctx) {
   return ctx.db.transaction(ctx.storeNames, 'r', function() {
     var stores = toArray(arguments);
-    var gets = stores.map(function(store) { 
+    var gets = stores.map(function(store) {
       return store.changedSinceSync.get(1);
     });
     SyncPromise.all(gets).then(function(results) {
