@@ -586,10 +586,10 @@ describe('SyncedDB', function() {
           nrOfRecordsToSync: 0
         })});
       };
-      db.sync('roads').then(function() {
+      db.sync(['roads']).then(function() {
         done();
       });
-      db.sync('roads').catch(function(err) {
+      db.sync(['roads']).catch(function(err) {
         assert.equal(err.type, 'AlreadySyncing');
       });
     });
@@ -873,8 +873,7 @@ describe('SyncedDB', function() {
             nrOfRecordsToSync: 0
           })});
         };
-        db.sync('roads')
-        .then(function() {
+        db.sync(['roads']).then(function() {
           done();
         });
       });
@@ -1371,7 +1370,7 @@ describe('SyncedDB', function() {
             })});
           }
         };
-        db.syncContinuously('animals').then(function() {
+        db.sync(['animals'], {continuously: true}).then(function() {
           db.animals.put({color: 'grey', name: 'Mister'}).then(function() {
             var secondSend = JSON.parse(sendSpy.getCall(1).args[0]);
             assert.equal(secondSend.type, 'create');
@@ -1398,7 +1397,7 @@ describe('SyncedDB', function() {
             })});
           }
         };
-        db.syncContinuously('animals').then(function() {
+        db.sync(['animals'], {continuously: true}).then(function() {
           var cat = {color: 'grey', name: 'Mister'};
           db.animals.put(cat)
           .then(function() {
@@ -1435,7 +1434,7 @@ describe('SyncedDB', function() {
             })});
           }
         };
-        db.syncContinuously('animals').then(function() {
+        db.sync(['animals'], {continuously: true}).then(function() {
           var cat = {color: 'grey', name: 'Mister'};
           db.animals.put(cat)
           .then(function() {

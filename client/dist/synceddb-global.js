@@ -217,6 +217,8 @@ function isObject(o) {
   return o !== null && typeof o === 'object';
 }
 
+var isArray = Array.isArray;
+
 function isString(s) {
   return typeof s === 'string';
 }
@@ -921,12 +923,15 @@ function doSync(db, continuously, storeNames) {
   });
 }
 
-SDBDatabase.prototype.sync = function(/* storeNames */) {
-  return doSync(this, false, arguments);
-};
-
-SDBDatabase.prototype.syncContinuously = function(/* storeNames */) {
-  return doSync(this, true, arguments);
+SDBDatabase.prototype.sync = function(storeNames, opts) {
+  if (arguments.length === 1 && !isArray(storeNames)) {
+    opts = storeNames;
+  }
+  storeNames = isString(storeNames) ? [storeNames]
+             : !isArray(storeNames) ? []
+                                    : storeNames;
+  var continuously = isObject(opts) && opts.continuously === true; 
+  return doSync(this, continuously, storeNames);
 };
 
 exports.open = function(opts) {

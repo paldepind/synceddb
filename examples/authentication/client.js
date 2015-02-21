@@ -73,11 +73,10 @@
     db.messages.on('auth-response', function(msg) {
       if (msg.success === true) {
         console.log('authenticated');
-        db.syncContinuously();
       } else {
         console.log('Auth failed, we try synchronizing anyway.');
-        db.syncContinuously();
       }
+      db.sync({continuously: true});
     });
 
     db.messages.on('unauthorized', function(msg) {

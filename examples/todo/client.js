@@ -49,7 +49,7 @@
     db.tasks.byCreation.getAll().then(function(tasks) {
       tasks.forEach(createTaskElm);
     });
-    db.syncContinuously('tasks');
+    db.sync('tasks', {continuously: true});
 
     var createTaskElm = function(task) {
       var list = document.getElementById('tasks');

@@ -157,6 +157,28 @@ db.connect().then(function() {
 });
 ```
 
+### SDBDatabase#sync()
+Synchronize the local database with the remote. This fetches and applies all changes from the remote
+since the last synchronization. Afterwards it sends all local changes to the remote.
+
+__Arguments__
+  * \[`storeNames`\] (string|array) - The store or stores that should be synced to the remote.
+  * \[`options`\] (object) - Options regarding how the sync is performed
+    * `continuously` (boolean) - Whether or not the synchronization should continue after all changes
+      at the time of calling `sync` has been synchronized.
+
+__Returns__
+
+A promise that is resolved when all changes at the time of calling `sync` has
+been synchronized.
+
+__Example__
+
+```
+db.sync('books').then(function() {
+  // The local books store is now up to date with the server.
+});
+
 ### SDBDatabase#connect()
 Open a WebSocket connection to the server. This is useful if you wish to send custom messages
 to the server using `SDBDatabase#send`.
