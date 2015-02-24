@@ -936,3 +936,11 @@ SDBDatabase.prototype.sync = function(storeNames, opts) {
 exports.open = function(opts) {
   return new SDBDatabase(opts);
 };
+
+exports.patch = dffptch.patch;
+
+exports.diff = dffptch.diff;
+
+exports.open = function(opts) {
+  return new SDBDatabase(opts);
+};

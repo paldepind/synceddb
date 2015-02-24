@@ -1458,4 +1458,11 @@ describe('SyncedDB', function() {
       });
     });
   });
+  it('exposes diff and patch', function() {
+    var rabbit1 = {name: 'Thumper', age: 1, color: 'brown'};
+    var rabbit2 = {name: 'Thumper', age: 3, color: 'grey'};
+    var delta = syncedDB.diff(rabbit1, rabbit2);
+    syncedDB.patch(rabbit1, delta);
+    assert.deepEqual(rabbit1, rabbit2);
+  });
 });
