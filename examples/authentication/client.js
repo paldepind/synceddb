@@ -93,5 +93,10 @@
         createdAt: Date.now()
       });
     });
+
+    document.getElementById('reset').addEventListener('click', function() {
+      var req = indexedDB.deleteDatabase('authApp');
+      req.onsuccess = function() { location.reload(); };
+    });
   });
 }());

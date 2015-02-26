@@ -9,6 +9,7 @@ body {
   width: 100%;
   max-width: 30em;
   margin: 0 auto;
+  padding: 1px;
 }
 button, input {
   border: 0;
@@ -59,4 +60,10 @@ button {
 .delete:hover {
   background: rgb(234, 73, 73);
   color: white;
+}
+#reset {
+  background: #cc3333;
+  float: right;
+  margin-top: 0.87em;
+  font-size: .9em;
 }

@@ -117,5 +117,9 @@
         createdAt: Date.now()
       });
     });
+    document.getElementById('reset').addEventListener('click', function() {
+      var req = indexedDB.deleteDatabase('countApp');
+      req.onsuccess = function() { location.reload(); };
+    });
   });
 }());

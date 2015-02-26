@@ -114,5 +114,10 @@
         createdAt: Date.now()
       });
     });
+
+    document.getElementById('reset').addEventListener('click', function() {
+      var req = indexedDB.deleteDatabase('todoApp');
+      req.onsuccess = function() { location.reload(); };
+    });
   });
 }());
