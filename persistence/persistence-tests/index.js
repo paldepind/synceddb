@@ -78,6 +78,25 @@ function testPersistence(create) {
         assert.notEqual(result[1].version, undefined);
       });
     });
+    it('sending several changes in a row generates unique keys', function(done) {
+      var called = 0;
+      var keys = [];
+      var secondChangeTimestamp;
+      var change1 = { type: 'create', storeName: 'animals', record: { name: 'Thumper' }, key: 0, };
+      var change2 = { type: 'create', storeName: 'animals', record: { name: 'Thumper' }, key: 0, };
+      var change3 = { type: 'create', storeName: 'animals', record: { name: 'Thumper' }, key: 0, };
+      function handle(change) {
+        keys.push(change.key);
+        if (keys.length === 3) {
+          assert.notEqual(keys[0], keys[1]);
+          assert.notEqual(keys[1], keys[2]);
+          done();
+        }
+      }
+      store.saveChange(change1).then(handle);
+      store.saveChange(change2).then(handle);
+      store.saveChange(change3).then(handle);
+    });
     it('only returns changes after timestamp', function() {
       var key;
       var secondChangeTimestamp;
@@ -87,8 +106,7 @@ function testPersistence(create) {
         record: { name: 'Thumper' },
         key: 0,
       };
-      return store.saveChange(change)
-      .then(function() {
+      return store.saveChange(change).then(function() {
         return store.saveChange(change);
       }).then(function(change) {
         secondChangeTimestamp = change.timestamp;

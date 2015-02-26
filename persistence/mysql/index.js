@@ -4,6 +4,8 @@ Promise.promisifyAll(mysql);
 Promise.promisifyAll(require('mysql/lib/Connection').prototype);
 Promise.promisifyAll(require('mysql/lib/Pool').prototype);
 
+var nextKey;
+
 function getNewKey(con) {
   return con.queryAsync(
     'SELECT MAX(`key`) AS `max` FROM synceddb_changes'
@@ -20,10 +22,14 @@ function create(opts) {
     '`key` INT NOT NULL, ' +
     '`version` INT NOT NULL, ' +
     '`storename` VARCHAR(255) NOT NULL, ' +
-    '`type` TEXT NOT NULL, ' +
-    //'`type` ENUM("create", "update", "delete") NOT NULL, ' +
+    '`type` ENUM("create", "update", "delete") NOT NULL, ' +
     '`data` TEXT NOT NULL)'
-  ).then(function() { return p; });
+  ).then(function() {
+    return getNewKey(p.connection);
+  }).then(function(key) {
+    nextKey = key;
+    return p;
+  });
 }
 
 function mysqlPersistence(opts) {
@@ -35,32 +41,28 @@ var processChange = {
   create: function(change, data, con) {
     change.version = 0;
     data.record = change.record;
-    return getNewKey(con).then(function(nK) {
-      change.key = nK;
-    });
+    change.key = nextKey;
+    nextKey++;
   },
   update: function(change, data) {
     data.diff = change.diff;
     change.version++;
-    return Promise.resolve();
   },
   delete: function(change, data) {
     change.version++;
-    return Promise.resolve();
   },
 };
 
 mysqlPersistence.prototype.saveChange = function(change) {
   var data = {};
   var con = this.connection;
-  return processChange[change.type](change, data, con).then(function() {
-    var dataStr = JSON.stringify(data);
-    return con.queryAsync(
-      'INSERT INTO synceddb_changes (`key`, version, storename, type, data) ' +
-      'VALUES (?, ?, ?, ?, ?)',
-      [change.key, change.version, change.storeName, change.type, dataStr]
-    );
-  }).then(function(res) {
+  processChange[change.type](change, data, con);
+  var dataStr = JSON.stringify(data);
+  return con.queryAsync(
+    'INSERT INTO synceddb_changes (`key`, version, storename, type, data) ' +
+    'VALUES (?, ?, ?, ?, ?)',
+    [change.key, change.version, change.storeName, change.type, dataStr]
+  ).then(function(res) {
     change.timestamp = res[0].insertId;
     return change;
   });
@@ -91,6 +93,7 @@ mysqlPersistence.prototype.getChangesToRecord = function(change) {
 mysqlPersistence.prototype.resetChanges = function(change) {
   var con = this.connection;
   return con.queryAsync('DELETE FROM synceddb_changes').then(function() {
+    nextKey = 0;
     return con.queryAsync('ALTER TABLE synceddb_changes AUTO_INCREMENT = 1');
   });
 };

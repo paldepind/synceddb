@@ -8,6 +8,8 @@ function getClient(p) {
   });
 }
 
+var nextKey;
+
 function getNewKey(client) {
   return client.queryAsync(
     'SELECT max(key) FROM synceddb_changes'
@@ -24,9 +26,8 @@ var processChange = {
   create: function(change, data, client) {
     change.version = 0;
     data.record = change.record;
-    return getNewKey(client).then(function(nK) {
-      change.key = nK;
-    });
+    change.key = nextKey;
+    nextKey++;
   },
   update: function(change, data) {
     data.diff = change.diff;
@@ -42,8 +43,7 @@ pgPersistence.prototype.saveChange = function(change) {
   var data = {};
   return getClient(this).then(function(c) {
     client = c;
-    return processChange[change.type](change, data, client);
-  }).then(function() {
+    processChange[change.type](change, data, client);
     return client.queryAsync(
       'INSERT INTO synceddb_changes (key, version, storename, type, data)' +
       'VALUES ($1, $2, $3, $4, $5) RETURNING timestamp',
@@ -108,6 +108,9 @@ function create(opts) {
       'data JSON NOT NULL)'
     );
   }).then(function() {
+    return getNewKey(client);
+  }).then(function(key) {
+    nextKey = key;
     client.close();
     return p;
   });
