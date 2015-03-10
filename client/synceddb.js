@@ -323,14 +323,18 @@ SDBObjectStore.prototype.put = function(/* recs */) {
   });
 };
 
-function insertRecToStore(method, store, val, origin) {
+function insertRecToStore(method, store, rec, origin) {
+  if (origin === 'LOCAL') {
+    var sent = store.db.recordsSentToRemote[rec.key];
+    if (sent !== undefined) sent.changedSince = true;
+  }
   var IDBStore = store.IDBStore;
   return new SyncPromise(function(resolve, reject) {
-    var req = IDBStore[method](val);
+    var req = IDBStore[method](rec);
     req.onsuccess = function() {
       var type = method === 'add' ? 'add' : 'update';
       if (origin !== 'INTERNAL') {
-        store.changedRecords.push({type: type, origin: origin, record: val});
+        store.changedRecords.push({type: type, origin: origin, record: rec});
       }
       resolve(req.result);
     };
@@ -351,6 +355,10 @@ function createTombstone(r) {
 }
 
 function deleteFromStore(store, key, origin) {
+  if (origin === 'LOCAL') {
+    var sent = store.db.recordsSentToRemote[key];
+    if (sent !== undefined) sent.changedSince = true;
+  }
   var IDBStore = store.IDBStore;
   return new SyncPromise(function(resolve, reject) {
     doGet(IDBStore, key, true).then(function(record) {
@@ -422,6 +430,7 @@ var SDBDatabase = function(opts) {
   db.recordsToSync = new Countdown();
   db.changesLeftFromRemote = new Countdown();
   db.messages = new Events();
+  db.recordsSentToRemote = {}; // Dictionary of records sent
   db.stores = {};
   var stores = {};
   eachKeyVal(opts.stores, function(storeName, indexes) {
@@ -528,6 +537,10 @@ function sendChangeToRemote(db, storeName, record) {
   var msgFunc = record.deleted        ? deleteMsg
               : record.remoteOriginal ? updateMsg
                                       : createMsg;
+  db.recordsSentToRemote[record.key] = {
+    changedSince: false,
+    record: copyRecord(record),
+  };
   db.ws.send(msgFunc(storeName, record));
 }
 
@@ -610,11 +623,15 @@ var handleIncomingMessageByType = {
     });
   },
   'ok': function(db, ws, msg) {
-    var record;
+    var record,
+        sent = db.recordsSentToRemote[msg.key];
     db.write(msg.storeName, 'sdbMetaData', function(store, metaStore) {
       doGet(store.IDBStore, msg.key, true).then(function(rec) {
         record = rec;
-        if (record.deleted) {
+        if (sent.changedSince === true) {
+          record.remoteOriginal = sent.record;
+          putRecToStore(store, record, 'INTERNAL');
+        } else if (record.deleted) {
           store.IDBStore.delete(msg.key);
         } else {
           record.changedSinceSync = 0;
@@ -626,6 +643,7 @@ var handleIncomingMessageByType = {
           }
           putRecToStore(store, record, 'INTERNAL');
         }
+        delete db.recordsSentToRemote[msg.key];
       }).then(function() {
         updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
       });

@@ -446,7 +446,6 @@ describe('SyncedDB', function() {
       }).catch(function(err) {
         return db.houses.get(keys[1]);
       }).catch(function(err) {
-        console.log(err);
         done();
       });
     });
@@ -829,10 +828,8 @@ describe('SyncedDB', function() {
         db.roads.put(road).then(function(roadId) {
           return db.pushToRemote();
         }).then(function() {
-          console.log('done push');
           return db.pullFromRemote('roads');
         }).then(function() {
-          console.log(secondMsg);
           assert.equal(secondMsg.since, 8);
           done();
         });
@@ -859,6 +856,46 @@ describe('SyncedDB', function() {
             type: 'custom-msg',
             data: 'foobar'
           })});
+        });
+      });
+      it('record is not marked sync if changed before server ok', function(done) {
+        var road = {length: 100, price: 1337};
+        onSend = function(msg) {
+          var sent = JSON.parse(msg);
+          if (sent.type === 'create') {
+            road.length = 110;
+            db.roads.put(road).then(function() {
+              ws.onmessage({data: JSON.stringify({
+                type: 'ok',
+                storeName: 'roads',
+                key: sent.key,
+                timestamp: timestamp++,
+                newVersion: 0,
+              })});
+            });
+          } else if (sent.type === 'update') {
+            ws.onmessage({data: JSON.stringify({
+              type: 'ok',
+              storeName: 'roads',
+              key: sent.key,
+              timestamp: timestamp++,
+              newVersion: 0,
+            })});
+          }
+        };
+        db.roads.put(road).then(function(roadId) {
+          return db.pushToRemote();
+        }).then(function() {
+          return db.pushToRemote();
+        }).then(function() {
+          assert.equal(sendSpy.callCount, 2);
+          var sent1 = JSON.parse(sendSpy.getCall(0).args[0]);
+          var sent2 = JSON.parse(sendSpy.getCall(1).args[0]);
+          assert.equal(sent1.type, 'create');
+          assert.equal(sent1.record.length, 100);
+          assert.equal(sent2.type, 'update');
+          assert.deepEqual(sent2.diff, {m: {2: 110}});
+          done();
         });
       });
     });
@@ -898,7 +935,6 @@ describe('SyncedDB', function() {
         db.pullFromRemote('roads').then(function() {
           return db.roads.byLength.get(133);
         }).then(function(roads) {
-          console.log(roads);
           assert.equal(roads[0].price, 1000);
           assert.equal(roads[0].version, 0);
           done();
@@ -1021,8 +1057,6 @@ describe('SyncedDB', function() {
         db.stores.roads.handleConflict = stub;
         onSend = function(raw) {
           var msg = JSON.parse(raw);
-          console.log('server recieved');
-          console.log(msg);
           if (msg.type === 'create') {
             ws.onmessage({data: JSON.stringify({
               type: 'ok',
