@@ -8,6 +8,19 @@ SyncedDB makes web applications work beautifully both online and offline.
 You can write your client as if everything was stored offline! SyncedDB takes
 care of synchronizing the local database to other clients in real time.
 
+# Table of contents
+
+* [Why](#why)
+* [What](#what)
+* [Example](#example)
+* [Main features](#main-features)
+* [How is it different](#how-is-it-different)
+* [Storage options](#storage-options)
+* [Todo](#todo)
+* [Examples](#examples)
+* [Documentation](#documentation)
+
+
 Why
 ---
 
