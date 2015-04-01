@@ -174,10 +174,11 @@ been synchronized.
 
 __Example__
 
-```
+```javascript
 db.sync('books').then(function() {
   // The local books store is now up to date with the server.
 });
+```
 
 ### SDBDatabase#connect()
 Open a WebSocket connection to the server. This is useful if you wish to send custom messages
