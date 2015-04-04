@@ -392,15 +392,27 @@ describe('SyncedDB', function() {
         });
       }
     });
-    it('can put records with key', function(done) {
+    it('can put record with key', function(done) {
       var house = {street: 'Somewhere 8', built: 1993};
-      db.houses.put(house)
-      .then(function() {
+      db.houses.put(house).then(function() {
         return db.houses.get(house.key);
       }).then(function(house) {
         assert(house.built === 1993);
         done();
       });
+    });
+    it('synchronously adds key and sync status', function(done) {
+      var house = {street: 'Somewhere 8', built: 1993};
+      var syncKey;
+      db.houses.put(house).then(function(keys) {
+        assert.equal(syncKey, keys[0]);
+        return db.houses.get(house.key);
+      }).then(function(house) {
+        assert(house.built === 1993);
+        done();
+      });
+      syncKey = house.key;
+      assert.equal(house.changedSinceSync, 1);
     });
     it('can put several records at once', function(done) {
       var keys;

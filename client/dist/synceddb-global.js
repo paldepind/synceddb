@@ -441,9 +441,9 @@ SDBObjectStore.prototype.delete = function(/* keys */) {
 
 function doInStoreTx(mode, store, cb) {
   if (store.tx) { // We're in transaction
-    return (new SyncPromise(function(resolve, reject) {
+    return new SyncPromise(function(resolve, reject) {
       cb(store.tx, resolve, reject);
-    }));
+    });
   } else {
     return store.db.then(function() {
       var tx = store.db.db.transaction(store.name, mode);
@@ -474,16 +474,15 @@ function updateMetaData(store, record) {
   });
 }
 
-function doPutRecord(store, record) {
-  record.changedSinceSync = 1;
+function doPutRecord(store, op) {
+  var record = op.rec;
   return new SyncPromise(function(resolve, reject) {
-    if (!isUndef(record.key)) { // Update existing record
+    if (op.newRec) { // Add new record
+      addRecToStore(store, record, 'LOCAL').then(resolve);
+    } else { // Update existing record
       updateMetaData(store, record).then(function() {
         return putRecToStore(store, record, 'LOCAL');
       }).then(resolve);
-    } else { // Add new record
-      record.key = Math.random().toString(36);
-      addRecToStore(store, record, 'LOCAL').then(resolve);
     }
   });
 }
@@ -491,8 +490,19 @@ function doPutRecord(store, record) {
 SDBObjectStore.prototype.put = function(/* recs */) {
   var recs = toArray(arguments);
   var store = this;
+  var ops = recs.map(function(rec) {
+    var newRec;
+    if (isUndef(rec.key)) {
+      newRec = true;
+      rec.key = Math.random().toString(36);
+    } else {
+      newRec = false;
+    }
+    rec.changedSinceSync = 1;
+    return {newRec: newRec, rec: rec};
+  });
   return doInStoreTx('readwrite', store, function(tx, resolve, reject) {
-    var puts = recs.map(partial(doPutRecord, store));
+    var puts = ops.map(partial(doPutRecord, store));
     SyncPromise.all(puts).then(resolve);
   });
 };
@@ -538,8 +548,8 @@ function deleteFromStore(store, key, origin) {
     doGet(IDBStore, key, true).then(function(record) {
       var tombstone = createTombstone(record);
       store.changedRecords.push({type: 'delete', origin: origin, record: tombstone});
-      if ((record.changedSinceSync === 1 && !record.remoteOriginal)
-          || origin === 'REMOTE') {
+      if ((record.changedSinceSync === 1 && !record.remoteOriginal) ||
+          origin === 'REMOTE') {
         var req = store.IDBStore.delete(key);
         req.onsuccess = resolve;
       } else {

@@ -4,8 +4,8 @@ API documentation
 Table of contents
 =================
 
-- [Client API documentation](client-api-documentation)
-- [Server API documentation](server-api-documentation)
+- [Client API documentation](#client-api-documentation)
+- [Server API documentation](#server-api-documentation)
 
 Client API documentation
 ========================
@@ -284,8 +284,7 @@ __Arguments__
 
 __Returns__
 
-A promise resolved with a single key in case only a single record was passed or
-with an array of keys if several records was passed.
+A promise resolved with an array of the keys of the passed records.
 
 __Example__
 
