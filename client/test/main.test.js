@@ -226,10 +226,8 @@ describe('SyncedDB', function() {
       db.write('roads', function(roads) {
         var road1 = {length: 100, price: 1337};
         var road2 = {length: 200, price: 2030};
-        roads.put(road1, road2)
-        .then(function() {
-          roads.get(road1.key, road2.key)
-          .then(function(found) {
+        roads.put(road1, road2).then(function() {
+          roads.get(road1.key, road2.key).then(function(found) {
             foundRoads = found;
           });
         });
@@ -268,11 +266,9 @@ describe('SyncedDB', function() {
     });
     it('is possible to get and then put', function(done) {
       var road = {length: 100, price: 1337};
-      db.roads.put(road)
-      .then(function() {
+      db.roads.put(road).then(function() {
         db.transaction('roads', 'rw', function(roads) {
-          roads.get(road.key)
-          .then(function(r) {
+          roads.get(road.key).then(function(r) {
             r.length = 110;
             roads.put(r);
           });
@@ -401,6 +397,20 @@ describe('SyncedDB', function() {
         done();
       });
     });
+    it('puts several already saved records in series', function(done) {
+      var got = 0;
+      function doneWhen() {
+        got++;
+        if (got === 2) done();
+      }
+      var house1 = {street: 'Somewhere 7', built: 1993};
+      var house2 = {street: 'Somewhere 8', built: 1995};
+      db.houses.put(house1, house2).then(function() {
+        console.log('put em');
+        db.houses.put(house1).then(doneWhen);
+        db.houses.put(house2).then(doneWhen);
+      });
+    });
     it('synchronously adds key and sync status', function(done) {
       var house = {street: 'Somewhere 8', built: 1993};
       var syncKey;
@@ -435,10 +445,9 @@ describe('SyncedDB', function() {
     });
     it('can delete record by key', function(done) {
       var key;
-      db.houses.put({street: 'Somewhere 7', built: 1982})
-      .then(function(insertKey) {
-        key = insertKey;
-        return db.houses.delete(insertKey);
+      db.houses.put({street: 'Somewhere 7', built: 1982}).then(function(insertKeys) {
+        key = insertKeys[0];
+        return db.houses.delete(key);
       }).then(function(house) {
         return db.houses.get(key);
       }).catch(function(err) {
@@ -1412,7 +1421,7 @@ describe('SyncedDB', function() {
               type: 'ok',
               storeName: 'animals',
               timestamp: timestamp++,
-              key: data.record.key,
+              key: data.key,
             })});
           }
         };
@@ -1445,8 +1454,7 @@ describe('SyncedDB', function() {
         };
         db.sync(['animals'], {continuously: true}).then(function() {
           var cat = {color: 'grey', name: 'Mister'};
-          db.animals.put(cat)
-          .then(function() {
+          db.animals.put(cat).then(function() {
             cat.color = 'white';
             return db.animals.put(cat);
           }).then(function() {
@@ -1482,8 +1490,7 @@ describe('SyncedDB', function() {
         };
         db.sync(['animals'], {continuously: true}).then(function() {
           var cat = {color: 'grey', name: 'Mister'};
-          db.animals.put(cat)
-          .then(function() {
+          db.animals.put(cat).then(function() {
             cat.color = 'white';
             return db.animals.put(cat);
           }).then(function() {

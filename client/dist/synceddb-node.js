@@ -325,9 +325,9 @@ var SDBIndex = function(name, db, store) {
   this.store = store;
 };
 
-function doIndexGet(idx, ranges, tx, resolve, reject) {
+function doIndexGet(idxName, ranges, IDBStore, resolve, reject) {
   var records = [];
-  var index = idx.store.IDBStore.index(idx.name);
+  var index = IDBStore.index(idxName);
   var rangesLeft = new Countdown(ranges.length);
   rangesLeft.onZero = partial(resolve, records);
   ranges.forEach(function(range) {
@@ -343,22 +343,22 @@ function doIndexGet(idx, ranges, tx, resolve, reject) {
 SDBIndex.prototype.get = function(/* ranges */) {
   var index = this;
   var ranges = toArray(arguments).map(IDBKeyRange.only);
-  return doInStoreTx('readonly', index.store, function(tx, resolve, reject) {
-    return doIndexGet(index, ranges, tx, resolve, reject);
+  return doInStoreTx('readonly', index.store, function(store, resolve, reject) {
+    return doIndexGet(index.name, ranges, store.IDBStore, resolve, reject);
   });
 };
 
 SDBIndex.prototype.getAll = function() {
   var index = this;
-  return doInStoreTx('readonly', index.store, function(tx, resolve, reject) {
-    return doIndexGet(index, [undefined], tx, resolve, reject);
+  return doInStoreTx('readonly', index.store, function(store, resolve, reject) {
+    return doIndexGet(index.name, [undefined], store.IDBStore, resolve, reject);
   });
 };
 SDBIndex.prototype.inRange = function(/* ranges */) {
   var index = this;
   var ranges = toArray(arguments).map(createKeyRange);
-  return doInStoreTx('readonly', index.store, function(tx, resolve, reject) {
-    return doIndexGet(index, ranges, tx, resolve, reject);
+  return doInStoreTx('readonly', index.store, function(store, resolve, reject) {
+    return doIndexGet(index.name, ranges, store.IDBStore, resolve, reject);
   });
 };
 
@@ -374,19 +374,6 @@ function emitChangeEvents(changes, dbStore) {
   });
 }
 
-function setStoreTx(store, tx) {
-  store.tx = tx;
-  store.IDBStore = tx.objectStore(store.name);
-  tx.addEventListener('abort', function() {
-    store.tx = undefined;
-  });
-  tx.addEventListener('complete', function() {
-    store.tx = undefined;
-    emitChangeEvents(store.changedRecords, store.db.stores[store.name]);
-    store.changedRecords.length = 0;
-  });
-}
-
 var SDBObjectStore = function(db, name, indexes, tx) {
   var store = this;
   store.name = name;
@@ -394,11 +381,18 @@ var SDBObjectStore = function(db, name, indexes, tx) {
   store.indexes = indexes;
   store.changedRecords = [];
   store.messages = new Events();
+  store.tx = tx;
   Events(store);
   indexes.forEach(function(i) {
     store[i] = new SDBIndex(i, db, store);
   });
-  if (tx) setStoreTx(store, tx);
+  if (!isUndef(tx)) {
+    store.IDBStore = tx.objectStore(store.name);
+    tx.addEventListener('complete', function() {
+      emitChangeEvents(store.changedRecords, store.db.stores[store.name]);
+      store.changedRecords.length = 0;
+    });
+  }
 };
 
 function doGet(IDBStore, key, getDeleted) {
@@ -416,9 +410,11 @@ function doGet(IDBStore, key, getDeleted) {
 }
 
 SDBObjectStore.prototype.get = function(/* keys */) {
-  var store = this;
   var keys = toArray(arguments);
-  return doInStoreTx('readonly', store, function(tx, resolve, reject) {
+  return doInStoreTx('readonly', this, function(store, resolve, reject) {
+    console.log('store');
+    console.log(store);
+    console.log(store.IDBStore);
     var gets = keys.map(partial(doGet, store.IDBStore));
     SyncPromise.all(gets).then(function(records) {
       if (keys.length === records.length)
@@ -428,9 +424,8 @@ SDBObjectStore.prototype.get = function(/* keys */) {
 };
 
 SDBObjectStore.prototype.delete = function(/* keys */) {
-  var store = this;
   var args = toArray(arguments);
-  return doInStoreTx('readwrite', store, function(tx, resolve, reject) {
+  return doInStoreTx('readwrite', this, function(store, resolve, reject) {
     var deletes = args.map(function(key) {
       return deleteFromStore(store, extractKey(key), 'LOCAL');
     });
@@ -441,24 +436,21 @@ SDBObjectStore.prototype.delete = function(/* keys */) {
 function doInStoreTx(mode, store, cb) {
   if (store.tx) { // We're in transaction
     return new SyncPromise(function(resolve, reject) {
-      cb(store.tx, resolve, reject);
+      cb(store, resolve, reject);
     });
   } else {
-    return store.db.then(function() {
-      var tx = store.db.db.transaction(store.name, mode);
-      setStoreTx(store, tx);
-      return new Promise(function(resolve, reject) {
-        var val, rejected;
-        cb(tx, function(v) {
+    return new Promise(function(resolve, reject) {
+      var val, rejected;
+      return store.db.transaction(store.name, mode, function(store) {
+        cb(store, function(v) {
           val = v;
           rejected = false;
         }, function(v) {
           val = v;
           rejected = true;
         });
-        tx.oncomplete = function() {
-          rejected ? reject(val) : resolve(val);
-        };
+      }).then(function() {
+        rejected ? reject(val) : resolve(val);
       });
     });
   }
@@ -475,20 +467,17 @@ function updateMetaData(store, record) {
 
 function doPutRecord(store, op) {
   var record = op.rec;
-  return new SyncPromise(function(resolve, reject) {
-    if (op.newRec) { // Add new record
-      addRecToStore(store, record, 'LOCAL').then(resolve);
-    } else { // Update existing record
-      updateMetaData(store, record).then(function() {
-        return putRecToStore(store, record, 'LOCAL');
-      }).then(resolve);
-    }
-  });
+  if (op.newRec) { // Add new record
+    return addRecToStore(store, record, 'LOCAL');
+  } else { // Update existing record
+    return updateMetaData(store, record).then(function() {
+      return putRecToStore(store, record, 'LOCAL');
+    });
+  }
 }
 
 SDBObjectStore.prototype.put = function(/* recs */) {
   var recs = toArray(arguments);
-  var store = this;
   var ops = recs.map(function(rec) {
     var newRec;
     if (isUndef(rec.key)) {
@@ -500,7 +489,7 @@ SDBObjectStore.prototype.put = function(/* recs */) {
     rec.changedSinceSync = 1;
     return {newRec: newRec, rec: rec};
   });
-  return doInStoreTx('readwrite', store, function(tx, resolve, reject) {
+  return doInStoreTx('readwrite', this, function(store, resolve, reject) {
     var puts = ops.map(partial(doPutRecord, store));
     SyncPromise.all(puts).then(resolve);
   });
@@ -549,7 +538,7 @@ function deleteFromStore(store, key, origin) {
       store.changedRecords.push({type: 'delete', origin: origin, record: tombstone});
       if ((record.changedSinceSync === 1 && !record.remoteOriginal) ||
           origin === 'REMOTE') {
-        var req = store.IDBStore.delete(key);
+        var req = IDBStore.delete(key);
         req.onsuccess = resolve;
       } else {
         putRecToStore(store, tombstone, 'INTERNAL').then(resolve);
@@ -660,7 +649,7 @@ SDBDatabase.prototype.transaction = function(storeNames, mode, fn) {
       var tx = db.db.transaction(storeNames, mode);
       var stores = storeNames.map(function(s) {
         var store = s === 'sdbMetaData' ? db[s] : db.stores[s];
-        return (new SDBObjectStore(db, s, store.indexes, tx));
+        return new SDBObjectStore(db, s, store.indexes, tx);
       });
       tx.oncomplete = resolve;
       fn.apply(null, stores);
@@ -806,8 +795,8 @@ var handleIncomingMessageByType = {
     });
   },
   'ok': function(db, ws, msg) {
-    var record,
-        sent = db.recordsSentToRemote[msg.key];
+    var record;
+    var sent = db.recordsSentToRemote[msg.key];
     db.write(msg.storeName, 'sdbMetaData', function(store, metaStore) {
       doGet(store.IDBStore, msg.key, true).then(function(rec) {
         record = rec;
