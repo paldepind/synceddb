@@ -311,6 +311,7 @@ SDBObjectStore.prototype.put = function(/* recs */) {
       newRec = true;
       rec.key = Math.random().toString(36);
     } else {
+      extractKey(rec); // Throws if key is invalid
       newRec = false;
     }
     rec.changedSinceSync = 1;

@@ -221,6 +221,15 @@ describe('SyncedDB', function() {
         done();
       });
     });
+    it('throws if putting with invalid key', function(done) {
+      var road = {length: 100, price: 1337, key: function() {}};
+      db.write('roads', function(roads, houses) {
+        roads.put(road);
+      }).catch(function(err) {
+        assert(err instanceof TypeError);
+        done();
+      });
+    });
     it('can get several records at once', function(done) {
       var foundRoads;
       db.write('roads', function(roads) {
