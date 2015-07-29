@@ -390,11 +390,11 @@ be returned.
 
 __Example__
 ```javascript
-db.product.byValue.getInRange({gt: 100, lte: 200}).then(function(products) {
+db.product.byValue.inRange({gt: 100, lte: 200}).then(function(products) {
   // All products where value is in the interval ]100;200]
 });
 
-db.product.byValue.getInRange({lte: 100}).then(function(products) {
+db.product.byValue.inRange({lte: 100}).then(function(products) {
   // All products where value is <= 100
 });
 ```
