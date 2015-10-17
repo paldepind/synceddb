@@ -79,9 +79,6 @@ pgPersistence.prototype.getChanges = function(req) {
   });
 };
 
-pgPersistence.prototype.getChangesToRecord = function(change) {
-};
-
 pgPersistence.prototype.resetChanges = function(change) {
   var client;
   return getClient(this).then(function(c) {

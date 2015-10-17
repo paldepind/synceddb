@@ -87,9 +87,6 @@ mysqlPersistence.prototype.getChanges = function(req) {
   });
 };
 
-mysqlPersistence.prototype.getChangesToRecord = function(change) {
-};
-
 mysqlPersistence.prototype.resetChanges = function(change) {
   var con = this.connection;
   return con.queryAsync('DELETE FROM synceddb_changes').then(function() {
