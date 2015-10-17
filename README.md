@@ -26,9 +26,9 @@ Why
 
 Since the widestream adoption of IndexedDB writing web applications
 with full offline support has been viable. But when storing data offline web
-applications looses the feature of seamlessly making a users data available
+applications typically lack the ability to seamlessly make a user's data available
 across devices. SyncedDB is a library that gives web applications the best of
-both worlds: a fully functional offline experience with real-time or on demand
+both worlds: a fully functional offline experience with real-time or on-demand
 synchronization of data when online.
 
 What
@@ -44,7 +44,7 @@ convenience methods and promises for all asynchronous operations.
 
 Server side SyncedDB stores a list of changes that clients can request/subscribe
 and post/publish to. The SyncedDB client communicates with the backend through
-WebSockets to achieve synchronization in real time. Furthermore the client provides
+WebSockets to achieve synchronization in real time. Furthermore, the client provides
 elegant conflict handling and events for reacting to changes published from the
 server.
 
@@ -82,14 +82,14 @@ db.tasks.on('add', function(e) { // A new task element pushed from remote.
   createTaskElm(e.record); // Handle task.
 });
 
-// Start syncing continously, the server will now.
+// Start syncing continuously, the server will now.
 // push and pull changes in real time.
 db.syncContinuously('tasks');
 ```
 
 __Server__
 
-```
+```javascript
 var Server = require('synceddb-server');
 
 // Persistence with PostreSQL.
@@ -121,11 +121,11 @@ Main features
 
 How is it different
 -------------------
-Some libraries caters to multiple storage backends and thus ends up with a
-limited feature set to support the lowest common denomenator. Other implements
-a new database on top of the browsers native storage facilities. This highly
+Some libraries cater to multiple storage backends and thus end up with a
+limited feature set following the lowest common denominator. Others implement
+a new database on top of the browser's native storage facilities. This highly
 increases complexity and reduces performance. By being a small wrapper around
-IndexedDB SyncedDB gains some of its key features: simplicity, power and
+IndexedDB, SyncedDB gains some of its key features: simplicity, power and
 performance.
 
 The SyncedDB backend was designed to be as flexible as possible. Users can
@@ -140,7 +140,7 @@ SyncedDB is still under development. Expect rough edges.
 Storage options
 ---------------
 
-Currently persistence options based on the following databases are provided:
+Persistence options are provided based on the following currently supported databases:
 
 * In memory (for developing)
 * MySQL
@@ -162,7 +162,7 @@ Examples
 
 * [Todo app](https://github.com/paldepind/synceddb/blob/master/examples/todo).
   Demonstrates the basics of how to use SyncedDB both client side and sever side.
-* [Authencation](https://github.com/paldepind/synceddb/blob/master/examples/authentication).
+* [Authentication](https://github.com/paldepind/synceddb/blob/master/examples/authentication).
   Shows how the protocol between the server and the client can be extended to
   facilitate authentication.
 * [Counters app](https://github.com/paldepind/synceddb/blob/master/examples/counters).
