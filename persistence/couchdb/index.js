@@ -110,9 +110,6 @@ couchdbPersistence.prototype.getChanges = function(req) {
   });
 };
 
-couchdbPersistence.prototype.getChangesToRecord = function(change) {
-};
-
 couchdbPersistence.prototype.resetChanges = function(change) {
   var dbUrl = this.dbUrl;
   return request({

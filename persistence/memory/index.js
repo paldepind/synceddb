@@ -29,12 +29,6 @@ MemoryPersistence.prototype.getChanges = function(req) {
   }
 };
 
-MemoryPersistence.prototype.getChangesToRecord = function(storeName, key) {
-  return store[storeName].filter(function(change) {
-    return change.key === key;
-  });
-};
-
 MemoryPersistence.prototype.resetChanges = function() {
   this.changes = {};
   return Promise.resolve();
