@@ -1,7 +1,7 @@
-var mysqlPersistence = require('../index');
-var Tests = require('../../persistence-tests');
+const mysqlPersistence = require('../index');
+const Tests = require('../../persistence-tests');
 
-var opts = {
+const opts = {
   host: 'localhost',
   user: 'synceddb',
   password: 'mypass',

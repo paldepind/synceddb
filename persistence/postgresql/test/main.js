@@ -1,7 +1,7 @@
-var pgPersistence = require('../index');
-var Tests = require('../../persistence-tests');
+const pgPersistence = require('../index');
+const Tests = require('../../persistence-tests');
 
-var opts = {
+const opts = {
   conString: 'postgres://postgres@localhost/synceddb',
 };
 

@@ -1,17 +1,17 @@
 (function() {
-  var stores = {
+  const stores = {
     counters: [
       ['byCreation', 'createdAt']
     ]
   };
-  var db = syncedDB.open({
+  const db = syncedDB.open({
     name: 'countApp',
     version: 1,
     stores: stores,
     remote: 'localhost:8080',
   });
 
-  var counters = [];
+  const counters = [];
 
   document.addEventListener('DOMContentLoaded', function() {
     db.counters.on('add', function(e) {
@@ -32,7 +32,7 @@
     db.counters.on('delete', function(e) {
       console.log('Counter deleted');
       console.log(e);
-      var idx;
+      let idx;
       counters.forEach(function(counter, i) {
         if (counter.record.key === e.record.key) idx = i;
       });
@@ -50,7 +50,7 @@
       counters.forEach(createCounterElm);
     });
     db.counters.handleConflict = function(original, local, remote) {
-      var locallyAdded = local.count - original.count;
+      const locallyAdded = local.count - original.count;
       local.count = locallyAdded + remote.count;
       return local;
     };
@@ -58,9 +58,9 @@
       db.sync();
     });
 
-    var createCounterElm = function(counter) {
-      var list = document.getElementById('counters');
-      var counterElm = document.createElement('li');
+    const createCounterElm = function(counter) {
+      const list = document.getElementById('counters');
+      const counterElm = document.createElement('li');
       counters.push({record: counter, elm: counterElm});
       counterElm.innerHTML = '<span class="count">' + counter.count + '</span><span>' + counter.name + '</span><a class="delete">×</a>';
       counterElm.addEventListener('click', increment.bind(null, counter));
@@ -100,7 +100,7 @@
     }
 
     function deleteCounter(counter, ev) {
-      //var key = ev.target.parentNode.id.slice(5);
+      //const key = ev.target.parentNode.id.slice(5);
       ev.preventDefault();
       ev.cancelBubble = true;
       console.log(counter);
@@ -109,7 +109,7 @@
 
     document.getElementById('add-count-form').addEventListener('submit', function(e) {
       e.preventDefault();
-      var desc = document.getElementById('count-name').value;
+      const desc = document.getElementById('count-name').value;
       document.getElementById('count-name').value = '';
       db.counters.put({
         name: desc,
@@ -118,7 +118,7 @@
       });
     });
     document.getElementById('reset').addEventListener('click', function() {
-      var req = indexedDB.deleteDatabase('countApp');
+      const req = indexedDB.deleteDatabase('countApp');
       req.onsuccess = function() { location.reload(); };
     });
   });

@@ -10,6 +10,6 @@
     "./dist/synceddb-global.js",
     "test/*.test.js"
   ],
-  "before_tests": "./build.sh",
+  "before_tests": "npm run build",
   "launch_in_dev": [ "firefox", "chromium" ]
 }

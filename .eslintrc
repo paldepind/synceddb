@@ -1,0 +1,36 @@
+{
+  "plugins": [
+  ],
+  "extends": "eslint:recommended",
+  "env": {
+    "es6": true,
+    "node": true,
+    "browser": true,
+    "mocha": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 6,
+    "sourceType": "module",
+    "ecmaFeatures": {
+      "objectLiteralShorthandMethods": true,
+      "objectLiteralShorthandProperties": true,
+      "destructuring": true,
+      "arrowFunctions": true
+    }
+  },
+  "globals": {
+    "syncedDB": true
+  },
+  "rules": {
+    "semi": [2, "always"],
+    "indent": [2, 2],
+    "space-before-function-paren": [2, "never"],
+    "arrow-parens": [2, "always"],
+    "no-return-assign": [2, "except-parens"],
+    "no-multiple-empty-lines": [2, {"max": 2}],
+    "comma-dangle": [0],
+    "no-console": [0],
+    "no-var": [2],
+    "no-unused-vars": [2, { "vars": "all", "args": "none" }]
+  }
+}

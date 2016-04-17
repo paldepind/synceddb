@@ -1,5 +1,5 @@
-var Promise = require('bluebird');
-var pg = Promise.promisifyAll(require('pg'));
+const bluebird = require('bluebird');
+const pg = bluebird.promisifyAll(require('pg'));
 
 function getClient(p) {
   return pg.connectAsync(p.conString).spread(function(client, done) {
@@ -8,7 +8,7 @@ function getClient(p) {
   });
 }
 
-var nextKey;
+let nextKey;
 
 function getNewKey(client) {
   return client.queryAsync(
@@ -22,7 +22,7 @@ function pgPersistence(opts) {
   this.conString = opts.conString;
 }
 
-var processChange = {
+const processChange = {
   create: function(change, data, client) {
     change.version = 0;
     data.record = change.record;
@@ -39,8 +39,8 @@ var processChange = {
 };
 
 pgPersistence.prototype.saveChange = function(change) {
-  var client;
-  var data = {};
+  let client;
+  const data = {};
   return getClient(this).then(function(c) {
     client = c;
     processChange[change.type](change, data, client);
@@ -57,8 +57,8 @@ pgPersistence.prototype.saveChange = function(change) {
 };
 
 pgPersistence.prototype.getChanges = function(req) {
-  var client;
-  var since = req.since === null ? -1 : req.since;
+  let client;
+  const since = req.since === null ? -1 : req.since;
   return getClient(this).then(function(c) {
     client = c;
     return client.queryAsync(
@@ -80,7 +80,7 @@ pgPersistence.prototype.getChanges = function(req) {
 };
 
 pgPersistence.prototype.resetChanges = function(change) {
-  var client;
+  let client;
   return getClient(this).then(function(c) {
     client = c;
     return client.queryAsync('DELETE FROM synceddb_changes');
@@ -92,7 +92,8 @@ pgPersistence.prototype.resetChanges = function(change) {
 };
 
 function create(opts) {
-  var p = new pgPersistence(opts), client;
+  let client;
+  const p = new pgPersistence(opts);
   return getClient(p).then(function(c) {
     client = c;
     return client.queryAsync(

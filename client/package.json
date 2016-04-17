@@ -2,10 +2,24 @@
   "name": "synceddb-client",
   "version": "0.0.6",
   "description": "An IndexedDB convenience wrapper with syncing",
-  "main": "dist/synceddb-node.js",
+  "main": "synceddb.js",
   "scripts": {
-    "test": "testem"
+    "test": "testem",
+    "build": "webpack; LIBRARY_TARGET=amd webpack",
+    "prepublish": "NODE_ENV=production npm run build"
   },
   "author": "Simon Friis Vindum",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "babel-core": "^6.7.6",
+    "babel-loader": "^6.2.4",
+    "babel-preset-es2015-webpack": "^6.4.0",
+    "dffptch": "^1.0.4",
+    "exports-loader": "^0.6.3",
+    "minivents": "^1.2.0",
+    "sync-promise": "^1.0.1",
+    "testem": "^1.6.0",
+    "uglifyjs": "^2.4.10",
+    "webpack": "^1.13.0"
+  }
 }

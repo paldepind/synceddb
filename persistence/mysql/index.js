@@ -1,10 +1,10 @@
-var mysql = require('mysql');
-var Promise = require('bluebird');
-Promise.promisifyAll(mysql);
-Promise.promisifyAll(require('mysql/lib/Connection').prototype);
-Promise.promisifyAll(require('mysql/lib/Pool').prototype);
+const mysql = require('mysql');
+const bluebird = require('bluebird');
+bluebird.promisifyAll(mysql);
+bluebird.promisifyAll(require('mysql/lib/Connection').prototype);
+bluebird.promisifyAll(require('mysql/lib/Pool').prototype);
 
-var nextKey;
+let nextKey;
 
 function getNewKey(con) {
   return con.queryAsync(
@@ -15,7 +15,7 @@ function getNewKey(con) {
 }
 
 function create(opts) {
-  var p = new mysqlPersistence(opts);
+  const p = new mysqlPersistence(opts);
   return p.connection.queryAsync(
     'CREATE TABLE IF NOT EXISTS `synceddb_changes` ' +
     '(`timestamp` INT NOT NULL AUTO_INCREMENT PRIMARY KEY, ' +
@@ -37,7 +37,7 @@ function mysqlPersistence(opts) {
   this.connection.connect();
 }
 
-var processChange = {
+const processChange = {
   create: function(change, data, con) {
     change.version = 0;
     data.record = change.record;
@@ -54,10 +54,10 @@ var processChange = {
 };
 
 mysqlPersistence.prototype.saveChange = function(change) {
-  var data = {};
-  var con = this.connection;
+  const data = {};
+  const con = this.connection;
   processChange[change.type](change, data, con);
-  var dataStr = JSON.stringify(data);
+  const dataStr = JSON.stringify(data);
   return con.queryAsync(
     'INSERT INTO synceddb_changes (`key`, version, storename, type, data) ' +
     'VALUES (?, ?, ?, ?, ?)',
@@ -69,8 +69,8 @@ mysqlPersistence.prototype.saveChange = function(change) {
 };
 
 mysqlPersistence.prototype.getChanges = function(req) {
-  var con = this.connection;
-  var since = req.since === null ? -1 : req.since;
+  const con = this.connection;
+  const since = req.since === null ? -1 : req.since;
   return con.queryAsync(
     'SELECT * FROM synceddb_changes WHERE storename = ? AND timestamp > ?',
     [req.storeName, since]
@@ -88,7 +88,7 @@ mysqlPersistence.prototype.getChanges = function(req) {
 };
 
 mysqlPersistence.prototype.resetChanges = function(change) {
-  var con = this.connection;
+  const con = this.connection;
   return con.queryAsync('DELETE FROM synceddb_changes').then(function() {
     nextKey = 0;
     return con.queryAsync('ALTER TABLE synceddb_changes AUTO_INCREMENT = 1');

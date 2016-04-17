@@ -1,10 +1,10 @@
-var extend = require('xtend');
-var WebSocketServer = require('ws').Server;
+'use strict';
+const WebSocketServer = require('ws').Server;
 
-var handleCreateMsg = function(clientData, store, msg, respond, broadcast) {
-  var originalKey = msg.key;
-  store.saveChange(msg).then(function(change) {
-    var newKey = originalKey !== change.key ? change.key : undefined;
+const handleCreateMsg = (clientData, store, msg, respond, broadcast) => {
+  const originalKey = msg.key;
+  store.saveChange(msg).then((change) => {
+    const newKey = originalKey !== change.key ? change.key : undefined;
     respond({
       type: 'ok',
       storeName: msg.storeName,
@@ -17,8 +17,8 @@ var handleCreateMsg = function(clientData, store, msg, respond, broadcast) {
   });
 };
 
-var handleUpdateMsg = function(clientData, store, msg, respond, broadcast) {
-  store.saveChange(msg).then(function(change) {
+const handleUpdateMsg = (clientData, store, msg, respond, broadcast) => {
+  store.saveChange(msg).then((change) => {
     respond({
       type: 'ok',
       storeName: change.storeName,
@@ -30,8 +30,8 @@ var handleUpdateMsg = function(clientData, store, msg, respond, broadcast) {
   });
 };
 
-var handleDeleteMsg = function(clientData, store, msg, respond, broadcast) {
-  store.saveChange(msg).then(function(change) {
+const handleDeleteMsg = (clientData, store, msg, respond, broadcast) => {
+  store.saveChange(msg).then((change) => {
     respond({
       type: 'ok',
       storeName: msg.storeName,
@@ -43,26 +43,26 @@ var handleDeleteMsg = function(clientData, store, msg, respond, broadcast) {
   });
 };
 
-var handleResetMsg = function(clientData, store, msg, respond, broadcast) {
-  store.resetChanges().then(function() {
+const handleResetMsg = (clientData, store, msg, respond, broadcast) => {
+  store.resetChanges().then(() => {
     respond({type: 'reset'});
   });
 };
 
-var sendChanges = function(clientData, store, msg, respond, broadcast) {
+const sendChanges = (clientData, store, msg, respond, broadcast) => {
   clientData.changesRequested = true;
-  store.getChanges(msg).then(function(changesToSend) {
+  store.getChanges(msg).then((changesToSend) => {
     respond({
       type: 'sending-changes',
       nrOfRecordsToSync: changesToSend.length,
     });
-    changesToSend.forEach(function(change) {
+    changesToSend.forEach((change) => {
       respond(change);
     });
   });
 };
 
-var handleMessageType = {
+const handleMessageType = {
   create: handleCreateMsg,
   update: handleUpdateMsg,
   delete: handleDeleteMsg,
@@ -75,8 +75,8 @@ function send(ws, msg) {
 }
 
 function broadcast(wss, ws, msg) {
-  var string = JSON.stringify(msg);
-  wss.clients.forEach(function(client) {
+  const string = JSON.stringify(msg);
+  wss.clients.forEach((client) => {
     if (client !== ws && ws.clientData.changesRequested === true) {
       client.send(string);
     }
@@ -84,37 +84,39 @@ function broadcast(wss, ws, msg) {
 }
 
 function handleMsgFn(server, ws) {
-  var s = send.bind(null, ws);
-  var b = broadcast.bind(null, server.wss, ws);
-  return function(msg) {
-    var data = JSON.parse(msg);
+  const s = send.bind(null, ws);
+  const b = broadcast.bind(null, server.wss, ws);
+  return (msg) => {
+    const data = JSON.parse(msg);
     if (data.type && data.type in server.handlers) {
       server.handlers[data.type](ws.clientData, server.store, data, s, b);
     }
   };
 }
 
-function Server(opts) {
-  var server = this;
-  server.resetHandlers();
-  server.store = opts.store;
-  server.wss = new WebSocketServer({port: opts.port || 8080});
-  server.wss.on('connection', function(ws) {
-    ws.clientData = {};
-    var handleMsg = handleMsgFn(server, ws);
-    handleMsg('{"type":"connect"}');
-    ws.on('message', handleMsg);
-  });
+class Server {
+  constructor(opts) {
+    const server = this;
+    server.resetHandlers();
+    server.store = opts.store;
+    server.wss = new WebSocketServer({port: opts.port || 8080});
+    server.wss.on('connection', (ws) => {
+      ws.clientData = {};
+      const handleMsg = handleMsgFn(server, ws);
+      handleMsg('{"type":"connect"}');
+      ws.on('message', handleMsg);
+    });
+  }
+
+  resetHandlers() {
+    this.handlers = Object.assign({}, handleMessageType);
+  }
+
+  close() {
+    this.wss.close();
+  }
 }
 
 Server.defaultHandlers = handleMessageType;
-
-Server.prototype.resetHandlers = function() {
-  this.handlers = extend({}, handleMessageType);
-};
-
-Server.prototype.close = function() {
-  this.wss.close();
-};
 
 module.exports = Server;

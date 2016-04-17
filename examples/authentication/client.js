@@ -1,18 +1,18 @@
 (function() {
   document.addEventListener('DOMContentLoaded', function() {
-    var stores = {
+    const stores = {
       messages: [
         ['byCreation', 'createdAt']
       ]
     };
-    var db = syncedDB.open({
+    const db = syncedDB.open({
       name: 'authApp',
       version: 1,
       stores: stores,
       remote: 'localhost:8080',
     });
-    var messages = [];
-    var msgStore = db.stores.messages;
+    const messages = [];
+    const msgStore = db.stores.messages;
 
     msgStore.on('add', function(e) {
       console.log('todo added');
@@ -27,22 +27,22 @@
       console.log('record rejected');
       console.log(rec);
       console.log(msg);
-      var msgElm = document.getElementById('msg-' + msg.key);
+      const msgElm = document.getElementById('msg-' + msg.key);
       msgElm.classList.add('rejected');
     };
     msgStore.on('synced', function(key, record) {
       console.log('record synced');
       console.log(key);
       console.log(record);
-      var msgElm = document.getElementById('msg-' + key);
+      const msgElm = document.getElementById('msg-' + key);
       msgElm.classList.add('synced');
     });
 
-    var createMessageElm = function(msg) {
+    const createMessageElm = function(msg) {
       console.log(msg);
       messages.push(msg);
-      var list = document.getElementById('messages');
-      var msgElm = document.createElement('li');
+      const list = document.getElementById('messages');
+      const msgElm = document.createElement('li');
       msgElm.id = 'msg-' + msg.key;
       msgElm.innerHTML = '<span>'+msg.text+'</span>';
       msgElm.style.transform = 'scale(.5)';
@@ -64,7 +64,7 @@
 
     document.getElementById('connect-form').addEventListener('submit', function(e) {
       e.preventDefault();
-      var selectedToken = document.querySelector('input[name="token"]:checked').value;
+      const selectedToken = document.querySelector('input[name="token"]:checked').value;
       db.connect().then(function() {
         db.send({type: 'authenticate', token: selectedToken});
       });
@@ -86,7 +86,7 @@
 
     document.getElementById('add-msg-form').addEventListener('submit', function(e) {
       e.preventDefault();
-      var desc = document.getElementById('msg-text').value;
+      const desc = document.getElementById('msg-text').value;
       document.getElementById('msg-text').value = '';
       msgStore.put({
         text: desc,
@@ -95,7 +95,7 @@
     });
 
     document.getElementById('reset').addEventListener('click', function() {
-      var req = indexedDB.deleteDatabase('authApp');
+      const req = indexedDB.deleteDatabase('authApp');
       req.onsuccess = function() { location.reload(); };
     });
   });

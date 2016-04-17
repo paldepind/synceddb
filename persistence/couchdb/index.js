@@ -1,9 +1,9 @@
-var Promise = require('bluebird');
-var request = Promise.promisify(require('request'));
+const bluebird = require('bluebird');
+const request = bluebird.promisify(require('request'));
 
 function saveDocument(dbUrl, doc) {
-  var method = doc._id ? 'PUT' : 'POST';
-  var url = dbUrl + (doc._id ? doc._id : '');
+  const method = doc._id ? 'PUT' : 'POST';
+  const url = dbUrl + (doc._id ? doc._id : '');
   return request({
     url: url,
     method: method,
@@ -65,7 +65,8 @@ function couchdbPersistence(opts) {
 }
 
 couchdbPersistence.prototype.saveChange = function(change) {
-  var dbUrl = this.dbUrl, storeMeta;
+  let storeMeta;
+  const dbUrl = this.dbUrl;
   return getStoreMetaDoc(dbUrl, change.storeName).then(function(sM) {
     storeMeta = sM;
     if (change.type === 'create') {
@@ -90,9 +91,8 @@ couchdbPersistence.prototype.saveChange = function(change) {
 };
 
 couchdbPersistence.prototype.getChanges = function(req) {
-  var dbUrl = this.dbUrl;
-  var qs = {};
-  var since = req.since === null ? 0 : req.since + 1;
+  const dbUrl = this.dbUrl;
+  const since = req.since === null ? 0 : req.since + 1;
   return request({
     url: dbUrl + '_design/synceddb/_view/changes',
     method: 'GET',
@@ -111,7 +111,7 @@ couchdbPersistence.prototype.getChanges = function(req) {
 };
 
 couchdbPersistence.prototype.resetChanges = function(change) {
-  var dbUrl = this.dbUrl;
+  const dbUrl = this.dbUrl;
   return request({
     method: 'DELETE',
     url: dbUrl
@@ -121,7 +121,7 @@ couchdbPersistence.prototype.resetChanges = function(change) {
 };
 
 function create(opts) {
-  var p = new couchdbPersistence(opts);
+  const p = new couchdbPersistence(opts);
   return createDb(opts.dbUrl).then(function() {
     return p;
   });

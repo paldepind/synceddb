@@ -1,29 +1,9 @@
 // SyncedDB
 'use strict';
 
-// Minivents
-// https://github.com/allouis/minivents
-function Events(target){
-  var events = {};
-  target = target || this;
-  // On: listen to events
-  target.on = function(type, func, ctx){
-    (events[type] = events[type] || []).push({f:func, c:ctx});
-  };
-  // Off: stop listening to event / specific callback
-  target.off = function(type, func){
-    type || (events = {});
-    var list = events[type] || [],
-    i = list.length = func ? list.length : 0;
-    while(i-->0) func == list[i].f && list.splice(i,1);
-  };
-  // Emit: send event, callbacks will be triggered
-  target.emit = function(){
-    var args = Array.apply([], arguments),
-    list = events[args.shift()] || [], i=0, j;
-    for(;j=list[i++];) j.f.apply(j.c, args);
-  };
-}
+const dffptch = require('dffptch');
+const SyncPromise = require('sync-promise');
+const Events = require('minivents');
 
 // General utility functions
 
@@ -32,7 +12,7 @@ function toArray(arr) {
 }
 
 function eachKeyVal(obj, fn) {
-  Object.keys(obj).forEach(function(key) { fn(key, obj[key]); });
+  Object.keys(obj).forEach((key) => { fn(key, obj[key]); });
 }
 
 function partial() {
@@ -43,7 +23,7 @@ function isObject(o) {
   return o !== null && typeof o === 'object';
 }
 
-var isArray = Array.isArray;
+const isArray = Array.isArray;
 
 function isString(s) {
   return typeof s === 'string';
@@ -71,63 +51,65 @@ function copyRecord(obj) {
 
 // Countdown abstraction
 
-function Countdown(initial) {
-  this.val = initial || 0;
+class Countdown {
+  constructor(initial) {
+    this.val = initial || 0;
+  }
+  add(n) {
+    this.val += n;
+    if (this.val === 0) this.onZero();
+  }
 }
-Countdown.prototype.add = function(n) {
-  this.val += n;
-  if (this.val === 0) this.onZero();
-};
 
 // WebSocket wrapper
 
-function WrappedSocket(url, protocol) {
-  var wws = this;
-  Events(wws);
-  var ws = this.ws = new WebSocket(url, protocol);
-  ws.onopen = function () {
-    console.log('Connection open');
-    wws.emit('open');
-  };
-  ws.onerror = function (error) {
-    console.log('Connection errror');
-    console.log(error);
-    wws.emit('error', error);
-  };
-  ws.onclose = function (e) {
-    console.log('Connection closed');
-    console.log(e);
-    wws.emit('close', e);
-  };
-  ws.onmessage = function(msg) {
-    console.log('Message recieved');
-    var data;
-    if (isString(msg.data)) {
-      data = JSON.parse(msg.data);
-    } else {
-      data = msg.data;
-    }
-    console.log(data);
-    wws.emit('message', data);
-  };
-}
-
-WrappedSocket.prototype.send = function(msg) {
-  if (isObject(msg)) {
-    this.ws.send(JSON.stringify(msg));
-  } else {
-    this.ws.send(msg);
+class WrappedSocket {
+  constructor(url, protocol) {
+    const wws = this;
+    Events(wws);
+    const ws = this.ws = new WebSocket(url, protocol);
+    ws.onopen = () => {
+      console.log('Connection open');
+      wws.emit('open');
+    };
+    ws.onerror = (error) => {
+      console.log('Connection errror');
+      console.log(error);
+      wws.emit('error', error);
+    };
+    ws.onclose = (e) => {
+      console.log('Connection closed');
+      console.log(e);
+      wws.emit('close', e);
+    };
+    ws.onmessage = (msg) => {
+      console.log('Message recieved');
+      let data;
+      if (isString(msg.data)) {
+        data = JSON.parse(msg.data);
+      } else {
+        data = msg.data;
+      }
+      console.log(data);
+      wws.emit('message', data);
+    };
   }
-};
-
-WrappedSocket.prototype.close = function() {
-  this.ws.close.apply(this.ws, arguments);
-};
+  send(msg) {
+    if (isObject(msg)) {
+      this.ws.send(JSON.stringify(msg));
+    } else {
+      this.ws.send(msg);
+    }
+  }
+  close() {
+    this.ws.close.apply(this.ws, arguments);
+  }
+}
 
 // SyncedDB
 
 function copyWithoutMeta(rec) {
-  var r = copyRecord(rec);
+  const r = copyRecord(rec);
   delete r.remoteOriginal;
   delete r.version;
   delete r.changedSinceSync;
@@ -135,7 +117,7 @@ function copyWithoutMeta(rec) {
 }
 
 function extractKey(pk) {
-  var k = isObject(pk) ? pk.key : pk;
+  const k = isObject(pk) ? pk.key : pk;
   if (!isKey(k)) throw new TypeError(k + ' is not a valid key');
   return k;
 }
@@ -146,51 +128,54 @@ function handleVersionChange(e) {
   e.target.close();
 }
 
-var SDBIndex = function(name, db, store) {
-  this.name = name;
-  this.db = db;
-  this.store = store;
-};
-
 function doIndexGet(idxName, ranges, IDBStore, resolve, reject) {
-  var records = [];
-  var index = IDBStore.index(idxName);
-  var rangesLeft = new Countdown(ranges.length);
+  const records = [];
+  const index = IDBStore.index(idxName);
+  const rangesLeft = new Countdown(ranges.length);
   rangesLeft.onZero = partial(resolve, records);
-  ranges.forEach(function(range) {
-    var req = index.openCursor(range);
-    req.onsuccess = function() {
-      var cursor = req.result;
+  ranges.forEach((range) => {
+    const req = index.openCursor(range);
+    req.onsuccess = () => {
+      const cursor = req.result;
       cursor ? (records.push(cursor.value), cursor.continue())
              : rangesLeft.add(-1);
     };
   });
 }
 
-SDBIndex.prototype.get = function(/* ranges */) {
-  var index = this;
-  var ranges = toArray(arguments).map(IDBKeyRange.only);
-  return doInStoreTx('readonly', index.store, function(store, resolve, reject) {
-    return doIndexGet(index.name, ranges, store.IDBStore, resolve, reject);
-  });
-};
+class SDBIndex {
+  constructor(name, db, store) {
+    this.name = name;
+    this.db = db;
+    this.store = store;
+  }
 
-SDBIndex.prototype.getAll = function() {
-  var index = this;
-  return doInStoreTx('readonly', index.store, function(store, resolve, reject) {
-    return doIndexGet(index.name, [undefined], store.IDBStore, resolve, reject);
-  });
-};
-SDBIndex.prototype.inRange = function(/* ranges */) {
-  var index = this;
-  var ranges = toArray(arguments).map(createKeyRange);
-  return doInStoreTx('readonly', index.store, function(store, resolve, reject) {
-    return doIndexGet(index.name, ranges, store.IDBStore, resolve, reject);
-  });
-};
+  get(/* ranges */) {
+    const index = this;
+    const ranges = toArray(arguments).map(IDBKeyRange.only);
+    return doInStoreTx('readonly', index.store, (store, resolve, reject) => {
+      return doIndexGet(index.name, ranges, store.IDBStore, resolve, reject);
+    });
+  }
+
+  getAll() {
+    const index = this;
+    return doInStoreTx('readonly', index.store, (store, resolve, reject) => {
+      return doIndexGet(index.name, [undefined], store.IDBStore, resolve, reject);
+    });
+  }
+
+  inRange(/* ranges */) {
+    const index = this;
+    const ranges = toArray(arguments).map(createKeyRange);
+    return doInStoreTx('readonly', index.store, (store, resolve, reject) => {
+      return doIndexGet(index.name, ranges, store.IDBStore, resolve, reject);
+    });
+  }
+}
 
 function emitChangeEvents(changes, dbStore) {
-  changes.forEach(function(change) {
+  changes.forEach((change) => {
     dbStore.emit(change.type, {
       record: change.record,
       origin: change.origin
@@ -201,31 +186,10 @@ function emitChangeEvents(changes, dbStore) {
   });
 }
 
-var SDBObjectStore = function(db, name, indexes, tx) {
-  var store = this;
-  store.name = name;
-  store.db = db;
-  store.indexes = indexes;
-  store.changedRecords = [];
-  store.messages = new Events();
-  store.tx = tx;
-  Events(store);
-  indexes.forEach(function(i) {
-    store[i] = new SDBIndex(i, db, store);
-  });
-  if (!isUndef(tx)) {
-    store.IDBStore = tx.objectStore(store.name);
-    tx.addEventListener('complete', function() {
-      emitChangeEvents(store.changedRecords, store.db.stores[store.name]);
-      store.changedRecords.length = 0;
-    });
-  }
-};
-
 function doGet(IDBStore, key, getDeleted) {
-  return new SyncPromise(function(resolve, reject) {
-    var req = IDBStore.get(key);
-    req.onsuccess = function() {
+  return new SyncPromise((resolve, reject) => {
+    const req = IDBStore.get(key);
+    req.onsuccess = () => {
       if (!isUndef(req.result) &&
           (!req.result.deleted || getDeleted)) {
         resolve(req.result);
@@ -236,47 +200,23 @@ function doGet(IDBStore, key, getDeleted) {
   });
 }
 
-SDBObjectStore.prototype.get = function(/* keys */) {
-  var keys = toArray(arguments);
-  return doInStoreTx('readonly', this, function(store, resolve, reject) {
-    console.log('store');
-    console.log(store);
-    console.log(store.IDBStore);
-    var gets = keys.map(partial(doGet, store.IDBStore));
-    SyncPromise.all(gets).then(function(records) {
-      if (keys.length === records.length)
-        resolve(keys.length == 1 ? records[0] : records);
-    }).catch(reject);
-  });
-};
-
-SDBObjectStore.prototype.delete = function(/* keys */) {
-  var args = toArray(arguments);
-  return doInStoreTx('readwrite', this, function(store, resolve, reject) {
-    var deletes = args.map(function(key) {
-      return deleteFromStore(store, extractKey(key), 'LOCAL');
-    });
-    SyncPromise.all(deletes).then(resolve).catch(reject);
-  });
-};
-
 function doInStoreTx(mode, store, cb) {
   if (store.tx) { // We're in transaction
-    return new SyncPromise(function(resolve, reject) {
+    return new SyncPromise((resolve, reject) => {
       cb(store, resolve, reject);
     });
   } else {
-    return new Promise(function(resolve, reject) {
-      var val, rejected;
-      return store.db.transaction(store.name, mode, function(store) {
-        cb(store, function(v) {
+    return new Promise((resolve, reject) => {
+      let val, rejected;
+      return store.db.transaction(store.name, mode, (store) => {
+        cb(store, (v) => {
           val = v;
           rejected = false;
-        }, function(v) {
+        }, (v) => {
           val = v;
           rejected = true;
         });
-      }).then(function() {
+      }).then(() => {
         rejected ? reject(val) : resolve(val);
       });
     });
@@ -284,7 +224,7 @@ function doInStoreTx(mode, store, cb) {
 }
 
 function updateMetaData(store, record) {
-  return doGet(store.IDBStore, record.key).then(function(oldRecord) {
+  return doGet(store.IDBStore, record.key).then((oldRecord) => {
     record.version = oldRecord.version;
     if (oldRecord.changedSinceSync === 0) {
       record.remoteOriginal = copyWithoutMeta(oldRecord);
@@ -293,46 +233,93 @@ function updateMetaData(store, record) {
 }
 
 function doPutRecord(store, op) {
-  var record = op.rec;
+  const record = op.rec;
   if (op.newRec) { // Add new record
     return addRecToStore(store, record, 'LOCAL');
   } else { // Update existing record
-    return updateMetaData(store, record).then(function() {
+    return updateMetaData(store, record).then(() => {
       return putRecToStore(store, record, 'LOCAL');
     });
   }
 }
 
-SDBObjectStore.prototype.put = function(/* recs */) {
-  var recs = toArray(arguments);
-  var ops = recs.map(function(rec) {
-    var newRec;
-    if (isUndef(rec.key)) {
-      newRec = true;
-      rec.key = Math.random().toString(36);
-    } else {
-      extractKey(rec); // Throws if key is invalid
-      newRec = false;
+class SDBObjectStore {
+  constructor(db, name, indexes, tx) {
+    const store = this;
+    store.name = name;
+    store.db = db;
+    store.indexes = indexes;
+    store.changedRecords = [];
+    store.messages = new Events();
+    store.tx = tx;
+    Events(store);
+    indexes.forEach((i) => {
+      store[i] = new SDBIndex(i, db, store);
+    });
+    if (!isUndef(tx)) {
+      store.IDBStore = tx.objectStore(store.name);
+      tx.addEventListener('complete', () => {
+        emitChangeEvents(store.changedRecords, store.db.stores[store.name]);
+        store.changedRecords.length = 0;
+      });
     }
-    rec.changedSinceSync = 1;
-    return {newRec: newRec, rec: rec};
-  });
-  return doInStoreTx('readwrite', this, function(store, resolve, reject) {
-    var puts = ops.map(partial(doPutRecord, store));
-    SyncPromise.all(puts).then(resolve);
-  });
-};
+  }
+
+  get(/* keys */) {
+    const keys = toArray(arguments);
+    return doInStoreTx('readonly', this, (store, resolve, reject) => {
+      console.log('store');
+      console.log(store);
+      console.log(store.IDBStore);
+      const gets = keys.map(partial(doGet, store.IDBStore));
+      SyncPromise.all(gets).then((records) => {
+        if (keys.length === records.length)
+          resolve(keys.length == 1 ? records[0] : records);
+      }).catch(reject);
+    });
+  }
+
+  delete(/* keys */) {
+    const args = toArray(arguments);
+    return doInStoreTx('readwrite', this, (store, resolve, reject) => {
+      const deletes = args.map((key) => {
+        return deleteFromStore(store, extractKey(key), 'LOCAL');
+      });
+      SyncPromise.all(deletes).then(resolve).catch(reject);
+    });
+  }
+
+  put(/* recs */) {
+    const recs = toArray(arguments);
+    const ops = recs.map((rec) => {
+      let newRec;
+      if (isUndef(rec.key)) {
+        newRec = true;
+        rec.key = Math.random().toString(36);
+      } else {
+        extractKey(rec); // Throws if key is invalid
+        newRec = false;
+      }
+      rec.changedSinceSync = 1;
+      return {newRec: newRec, rec: rec};
+    });
+    return doInStoreTx('readwrite', this, (store, resolve, reject) => {
+      const puts = ops.map(partial(doPutRecord, store));
+      SyncPromise.all(puts).then(resolve);
+    });
+  }
+}
 
 function insertRecToStore(method, store, rec, origin) {
   if (origin === 'LOCAL') {
-    var sent = store.db.recordsSentToRemote[rec.key];
+    const sent = store.db.recordsSentToRemote[rec.key];
     if (sent !== undefined) sent.changedSince = true;
   }
-  var IDBStore = store.IDBStore;
-  return new SyncPromise(function(resolve, reject) {
-    var req = IDBStore[method](rec);
-    req.onsuccess = function() {
-      var type = method === 'add' ? 'add' : 'update';
+  const IDBStore = store.IDBStore;
+  return new SyncPromise((resolve, reject) => {
+    const req = IDBStore[method](rec);
+    req.onsuccess = () => {
+      const type = method === 'add' ? 'add' : 'update';
       if (origin !== 'INTERNAL') {
         store.changedRecords.push({type: type, origin: origin, record: rec});
       }
@@ -341,8 +328,8 @@ function insertRecToStore(method, store, rec, origin) {
   });
 }
 
-var putRecToStore = partial(insertRecToStore, 'put');
-var addRecToStore = partial(insertRecToStore, 'add');
+const putRecToStore = partial(insertRecToStore, 'put');
+const addRecToStore = partial(insertRecToStore, 'add');
 
 function createTombstone(r) {
   return {
@@ -356,17 +343,17 @@ function createTombstone(r) {
 
 function deleteFromStore(store, key, origin) {
   if (origin === 'LOCAL') {
-    var sent = store.db.recordsSentToRemote[key];
+    const sent = store.db.recordsSentToRemote[key];
     if (sent !== undefined) sent.changedSince = true;
   }
-  var IDBStore = store.IDBStore;
-  return new SyncPromise(function(resolve, reject) {
-    doGet(IDBStore, key, true).then(function(record) {
-      var tombstone = createTombstone(record);
+  const IDBStore = store.IDBStore;
+  return new SyncPromise((resolve, reject) => {
+    doGet(IDBStore, key, true).then((record) => {
+      const tombstone = createTombstone(record);
       store.changedRecords.push({type: 'delete', origin: origin, record: tombstone});
       if ((record.changedSinceSync === 1 && !record.remoteOriginal) ||
           origin === 'REMOTE') {
-        var req = IDBStore.delete(key);
+        const req = IDBStore.delete(key);
         req.onsuccess = resolve;
       } else {
         putRecToStore(store, tombstone, 'INTERNAL').then(resolve);
@@ -376,12 +363,12 @@ function deleteFromStore(store, key, origin) {
 }
 
 function createKeyRange(r) {
-  var gt   = 'gt' in r,
-      gte  = 'gte' in r,
-      lt   = 'lt' in r,
-      lte  = 'lte' in r,
-      low  = gt ? r.gt : r.gte,
-      high = lt ? r.lt : r.lte;
+  const gt   = 'gt' in r;
+  const gte  = 'gte' in r;
+  const lt   = 'lt' in r;
+  const lte  = 'lte' in r;
+  const low  = gt ? r.gt : r.gte;
+  const high = lt ? r.lt : r.lte;
   return !gt && !gte ? IDBKeyRange.upperBound(high, lt)
        : !lt && !lte ? IDBKeyRange.lowerBound(low, gt)
                      : IDBKeyRange.bound(low, high, gt, lt);
@@ -393,26 +380,26 @@ function callMigrationHooks(data, migrations, newV, curV) {
       migrations[curV](data.db, data.e);
 }
 
-var handleMigrations = function(version, storeDeclaration, migrationHooks, e) {
-  var req = e.target;
-  var db = req.result;
-  var existingStores = db.objectStoreNames;
-  var metaStore;
+const handleMigrations = (version, storeDeclaration, migrationHooks, e) => {
+  const req = e.target;
+  const db = req.result;
+  const existingStores = db.objectStoreNames;
+  let metaStore;
   if (existingStores.contains('sdbMetaData')) {
     metaStore = req.transaction.objectStore('sdbMetaData');
   } else {
     metaStore = db.createObjectStore('sdbMetaData', {keyPath: 'key'});
     metaStore.put({key: 'meta'});
   }
-  eachKeyVal(storeDeclaration, function(storeName, indexes) {
-    var store;
+  eachKeyVal(storeDeclaration, (storeName, indexes) => {
+    let store;
     if (existingStores.contains(storeName)) {
       store = req.transaction.objectStore(storeName);
     } else {
       store = db.createObjectStore(storeName, {keyPath: 'key'});
       metaStore.put({key: storeName + 'Meta', syncedTo: null});
     }
-    indexes.forEach(function(index) {
+    indexes.forEach((index) => {
       if (!store.indexNames.contains(index[0]))
         store.createIndex.apply(store, index);
     });
@@ -421,84 +408,142 @@ var handleMigrations = function(version, storeDeclaration, migrationHooks, e) {
     callMigrationHooks({db: db, e: e}, migrationHooks, version, e.oldVersion);
 };
 
-var SDBDatabase = function(opts) {
-  var db = this;
-  Events(db);
-  db.name = opts.name;
-  db.remote = opts.remote;
-  db.version = opts.version;
-  db.recordsToSync = new Countdown();
-  db.changesLeftFromRemote = new Countdown();
-  db.messages = new Events();
-  db.recordsSentToRemote = {}; // Dictionary of records sent
-  db.stores = {};
-  var stores = {};
-  eachKeyVal(opts.stores, function(storeName, indexes) {
-    stores[storeName] = indexes.concat([['changedSinceSync', 'changedSinceSync']]);
+function doSync(db, continuously, storeNames) {
+  return getSyncContext(db, storeNames)
+  .then(doPullFromRemote)
+  .then(doPushToRemote)
+  .then((ctx) => {
+    continuously ? db.continuousSync = true
+                 : closeSyncContext(ctx);
   });
-  // Create stores on db object
-  eachKeyVal(stores, function(storeName, indexes) {
-    var indexNames = indexes.map(function(idx) { return idx[0]; });
-    var storeObj = new SDBObjectStore(db, storeName, indexNames);
-    db.stores[storeName] = storeObj;
-    // Make stores available directly as properties on the db
-    // Store shortcut should not override db properties
-    db[storeName] = db[storeName] || storeObj;
-  });
-  db.sdbMetaData = new SDBObjectStore(db, 'sdbMetaData', []);
-  this.promise = new Promise(function(resolve, reject) {
-    var req = indexedDB.open(db.name, db.version);
-    req.onupgradeneeded = partial(handleMigrations, db.version, stores, opts.migrations);
-    req.onsuccess = function(e) {
-      db.db = req.result;
-      db.db.onversionchange = handleVersionChange;
-      resolve({db: db, e: e});
-    };
-  });
-  return db;
-};
+}
 
-SDBDatabase.prototype.then = function(fn) {
-  return this.promise.then(fn);
-};
-SDBDatabase.prototype.catch = function(fn) {
-  return this.promise.catch(fn);
-};
-
-SDBDatabase.prototype.transaction = function(storeNames, mode, fn) {
-  storeNames = [].concat(storeNames);
-  mode = mode === 'r'    ? 'readonly'
-       : mode === 'read' ? 'readonly'
-       : mode === 'rw'   ? 'readwrite'
-                         : mode;
-  var db = this;
-  return db.then(function(res) {
-    return new Promise(function(resolve, reject) {
-      var tx = db.db.transaction(storeNames, mode);
-      var stores = storeNames.map(function(s) {
-        var store = s === 'sdbMetaData' ? db[s] : db.stores[s];
-        return new SDBObjectStore(db, s, store.indexes, tx);
-      });
-      tx.oncomplete = resolve;
-      fn.apply(null, stores);
+class SDBDatabase {
+  constructor(opts) {
+    const db = this;
+    Events(db);
+    db.name = opts.name;
+    db.remote = opts.remote;
+    db.version = opts.version;
+    db.recordsToSync = new Countdown();
+    db.changesLeftFromRemote = new Countdown();
+    db.messages = new Events();
+    db.recordsSentToRemote = {}; // Dictionary of records sent
+    db.stores = {};
+    const stores = {};
+    eachKeyVal(opts.stores, (storeName, indexes) => {
+      stores[storeName] = indexes.concat([['changedSinceSync', 'changedSinceSync']]);
     });
-  });
-};
+    // Create stores on db object
+    eachKeyVal(stores, (storeName, indexes) => {
+      const indexNames = indexes.map((idx) => { return idx[0]; });
+      const storeObj = new SDBObjectStore(db, storeName, indexNames);
+      db.stores[storeName] = storeObj;
+      // Make stores available directly as properties on the db
+      // Store shortcut should not override db properties
+      db[storeName] = db[storeName] || storeObj;
+    });
+    db.sdbMetaData = new SDBObjectStore(db, 'sdbMetaData', []);
+    this.promise = new Promise((resolve, reject) => {
+      const req = indexedDB.open(db.name, db.version);
+      req.onupgradeneeded = partial(handleMigrations, db.version, stores, opts.migrations);
+      req.onsuccess = (e) => {
+        db.db = req.result;
+        db.db.onversionchange = handleVersionChange;
+        resolve({db: db, e: e});
+      };
+    });
+    return db;
+  }
 
-SDBDatabase.prototype.read = function() {
-  var args = toArray(arguments), fn = args.pop();
-  return this.transaction(args, 'r', fn);
-};
+  then(fn) {
+    return this.promise.then(fn);
+  }
 
-SDBDatabase.prototype.write = function() {
-  var args = toArray(arguments), fn = args.pop();
-  return this.transaction(args, 'rw', fn);
-};
+  catch(fn) {
+    return this.promise.catch(fn);
+  }
+
+  transaction(storeNames, mode, fn) {
+    storeNames = [].concat(storeNames);
+    mode = mode === 'r'    ? 'readonly'
+         : mode === 'read' ? 'readonly'
+         : mode === 'rw'   ? 'readwrite'
+                           : mode;
+    const db = this;
+    return db.then((res) => {
+      return new Promise((resolve, reject) => {
+        const tx = db.db.transaction(storeNames, mode);
+        const stores = storeNames.map((s) => {
+          const store = s === 'sdbMetaData' ? db[s] : db.stores[s];
+          return new SDBObjectStore(db, s, store.indexes, tx);
+        });
+        tx.oncomplete = resolve;
+        fn.apply(null, stores);
+      });
+    });
+  }
+
+  read() {
+    const args = toArray(arguments);
+    const fn = args.pop();
+    return this.transaction(args, 'r', fn);
+  }
+
+  write() {
+    const args = toArray(arguments);
+    const fn = args.pop();
+    return this.transaction(args, 'rw', fn);
+  }
+
+  connect() {
+    const db = this;
+    return db.then(() => {
+      return getWs(db).then(() => {});
+    });
+  }
+
+  disconnect() {
+    if (this.ws) {
+      this.ws.close();
+      this.wsPromise = null;
+    }
+  }
+
+  send(msg) {
+    return getWs(this).then((ws) => {
+      ws.send(msg);
+    });
+  }
+
+  pushToRemote(/* storeNames */) {
+    return getSyncContext(this, arguments)
+    .then(doPushToRemote)
+    .then(closeSyncContext);
+  }
+
+  pullFromRemote(/* storeNames */) {
+    return getSyncContext(this, arguments)
+    .then(doPullFromRemote)
+    .then(closeSyncContext);
+  }
+
+  sync(storeNames, opts) {
+    if (arguments.length === 1 && !isArray(storeNames)) {
+      opts = storeNames;
+    }
+    storeNames = isString(storeNames) ? [storeNames]
+               : !isArray(storeNames) ? []
+                                      : storeNames;
+    const continuously = isObject(opts) && opts.continuously === true;
+    return doSync(this, continuously, storeNames);
+  }
+}
 
 // Syncing
 
-var createMsg = function(storeName, record) {
-  var r = copyWithoutMeta(record);
+const createMsg = (storeName, record) => {
+  const r = copyWithoutMeta(record);
   delete r.key;
   return {
     type: 'create',
@@ -508,12 +553,12 @@ var createMsg = function(storeName, record) {
   };
 };
 
-var updateMsg = function(storeName, record) {
-  var remoteOriginal = record.remoteOriginal;
+const updateMsg = (storeName, record) => {
+  const remoteOriginal = record.remoteOriginal;
   delete record.remoteOriginal; // Noise free diff
   remoteOriginal.version = record.version;
   remoteOriginal.changedSinceSync = 1;
-  var diff = dffptch.diff(remoteOriginal, record);
+  const diff = dffptch.diff(remoteOriginal, record);
   record.remoteOriginal = remoteOriginal;
   return {
     type: 'update',
@@ -524,7 +569,7 @@ var updateMsg = function(storeName, record) {
   };
 };
 
-var deleteMsg = function(storeName, record) {
+const deleteMsg = (storeName, record) => {
   return {
     type: 'delete',
     storeName: storeName,
@@ -534,7 +579,7 @@ var deleteMsg = function(storeName, record) {
 };
 
 function sendChangeToRemote(db, storeName, record) {
-  var msgFunc = record.deleted        ? deleteMsg
+  const msgFunc = record.deleted        ? deleteMsg
               : record.remoteOriginal ? updateMsg
                                       : createMsg;
   db.recordsSentToRemote[record.key] = {
@@ -545,14 +590,14 @@ function sendChangeToRemote(db, storeName, record) {
 }
 
 function updateStoreSyncedTo(metaStore, storeName, time) {
-  metaStore.get(storeName + 'Meta').then(function(storeMeta) {
+  metaStore.get(storeName + 'Meta').then((storeMeta) => {
     storeMeta.syncedTo = time;
     putRecToStore(metaStore, storeMeta, 'INTERNAL');
   });
 }
 
 function requestChangesToStore(db, ws, storeName) {
-  db.sdbMetaData.get(storeName + 'Meta').then(function(storeMeta) {
+  db.sdbMetaData.get(storeName + 'Meta').then((storeMeta) => {
     ws.send({
       type: 'get-changes',
       storeName: storeName,
@@ -562,71 +607,71 @@ function requestChangesToStore(db, ws, storeName) {
 }
 
 function handleRemoteChange(db, storeName, cb) {
-  return db.write(storeName, 'sdbMetaData', cb).then(function() {
+  return db.write(storeName, 'sdbMetaData', cb).then(() => {
     db.changesLeftFromRemote.add(-1);
   });
 }
 
-var handleIncomingMessageByType = {
-  'sending-changes': function(db, ws, msg) {
+const handleIncomingMessageByType = {
+  'sending-changes': (db, ws, msg) => {
     db.emit('sync-initiated', msg);
     db.changesLeftFromRemote.add(msg.nrOfRecordsToSync);
   },
-  'create': function(db, ws, msg) {
+  'create': (db, ws, msg) => {
     msg.record.changedSinceSync = 0;
     msg.record.key = msg.key;
     msg.record.version = msg.version;
-    handleRemoteChange(db, msg.storeName, function(store, metaStore) {
-      addRecToStore(store, msg.record, 'REMOTE').then(function() {
+    handleRemoteChange(db, msg.storeName, (store, metaStore) => {
+      addRecToStore(store, msg.record, 'REMOTE').then(() => {
         updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
       });
     });
   },
-  'update': function(db, ws, msg) {
-    handleRemoteChange(db, msg.storeName, function(store, metaStore) {
-      doGet(store.IDBStore, msg.key, true).then(function(local) {
+  'update': (db, ws, msg) => {
+    handleRemoteChange(db, msg.storeName, (store, metaStore) => {
+      doGet(store.IDBStore, msg.key, true).then((local) => {
         if (local.changedSinceSync === 1) { // Conflict
-          var original = local.remoteOriginal;
-          var remote = copyRecord(original);
+          const original = local.remoteOriginal;
+          const remote = copyRecord(original);
           remote.version = local.version;
           remote.changedSinceSync = 1;
           dffptch.patch(remote, msg.diff);
           local.remoteOriginal = remote;
-          var resolved = db.stores[msg.storeName].handleConflict(original, local, remote);
+          const resolved = db.stores[msg.storeName].handleConflict(original, local, remote);
           return putRecToStore(store, resolved, 'LOCAL');
         } else {
           dffptch.patch(local, msg.diff);
           local.version = msg.version;
           return putRecToStore(store, local, 'REMOTE');
         }
-      }).then(function() {
+      }).then(() => {
         updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
       });
     });
   },
-  'delete': function(db, ws, msg) {
-    handleRemoteChange(db, msg.storeName, function(store, metaStore) {
-      doGet(store.IDBStore, msg.key, true).then(function(local) {
+  'delete': (db, ws, msg) => {
+    handleRemoteChange(db, msg.storeName, (store, metaStore) => {
+      doGet(store.IDBStore, msg.key, true).then((local) => {
         if (local.changedSinceSync === 1 && !local.deleted) {
-          var original = local.remoteOriginal;
-          var remote = {deleted: true, key: msg.key};
+          const original = local.remoteOriginal;
+          const remote = {deleted: true, key: msg.key};
           local.remoteOriginal = remote;
-          var resolved = db.stores[msg.storeName].handleConflict(original, local, remote);
+          const resolved = db.stores[msg.storeName].handleConflict(original, local, remote);
           resolved.deleted ? deleteFromStore(store, msg.key, 'REMOTE')
                            : putRecToStore(store, resolved, 'LOCAL');
         } else {
           deleteFromStore(store, msg.key, 'REMOTE');
         }
-      }).then(function() {
+      }).then(() => {
         updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
       });
     });
   },
-  'ok': function(db, ws, msg) {
-    var record;
-    var sent = db.recordsSentToRemote[msg.key];
-    db.write(msg.storeName, 'sdbMetaData', function(store, metaStore) {
-      doGet(store.IDBStore, msg.key, true).then(function(rec) {
+  'ok': (db, ws, msg) => {
+    let record;
+    const sent = db.recordsSentToRemote[msg.key];
+    db.write(msg.storeName, 'sdbMetaData', (store, metaStore) => {
+      doGet(store.IDBStore, msg.key, true).then((rec) => {
         record = rec;
         if (sent.changedSince === true) {
           record.remoteOriginal = sent.record;
@@ -644,26 +689,26 @@ var handleIncomingMessageByType = {
           putRecToStore(store, record, 'INTERNAL');
         }
         delete db.recordsSentToRemote[msg.key];
-      }).then(function() {
+      }).then(() => {
         updateStoreSyncedTo(metaStore, msg.storeName, msg.timestamp);
       });
-    }).then(function() {
+    }).then(() => {
       db.stores[msg.storeName].emit('synced', msg.key, record);
       db.recordsToSync.add(-1);
     });
   },
-  'reject': function(db, ws, msg) {
+  'reject': (db, ws, msg) => {
     if (!isKey(msg.key)) {
       throw new Error('Reject message recieved from remote without key property');
     }
-    var f = isString(msg.storeName) ? db.stores[msg.storeName].handleReject
+    const f = isString(msg.storeName) ? db.stores[msg.storeName].handleReject
                                     : db.handleReject;
     if (!isFunc(f)) {
       throw new Error('Reject message recieved from remote but no reject handler is supplied');
     }
-    db.stores[msg.storeName].get(msg.key).then(function(record) {
+    db.stores[msg.storeName].get(msg.key).then((record) => {
       return f(record, msg);
-    }).then(function(record) {
+    }).then((record) => {
       record ? sendChangeToRemote(db, msg.storeName, record)
              : db.recordsToSync.add(-1); // Skip syncing record
     });
@@ -671,15 +716,15 @@ var handleIncomingMessageByType = {
 };
 
 function handleIncomingMessage(db, msg) {
-  var handler = handleIncomingMessageByType[msg.type];
-  var target = isString(msg.storeName) ? db.stores[msg.storeName].messages
+  const handler = handleIncomingMessageByType[msg.type];
+  const target = isString(msg.storeName) ? db.stores[msg.storeName].messages
                                        : db.messages;
   isFunc(handler) ? handler(db, db.ws, msg)
                   : target.emit(msg.type, msg);
 }
 
 function doPullFromRemote(ctx) {
-  return new Promise(function(resolve, reject) {
+  return new Promise((resolve, reject) => {
     ctx.db.changesLeftFromRemote.onZero = partial(resolve, ctx);
     ctx.storeNames.map(partial(requestChangesToStore, ctx.db, ctx.db.ws));
   });
@@ -687,12 +732,12 @@ function doPullFromRemote(ctx) {
 
 function sendRecordsChangedSinceSync(ctx) {
   return ctx.db.transaction(ctx.storeNames, 'r', function() {
-    var stores = toArray(arguments);
-    var gets = stores.map(function(store) {
+    const stores = toArray(arguments);
+    const gets = stores.map((store) => {
       return store.changedSinceSync.get(1);
     });
-    SyncPromise.all(gets).then(function(results) {
-      var total = results.reduce(function(sum, recs, i) {
+    SyncPromise.all(gets).then((results) => {
+      const total = results.reduce((sum, recs, i) => {
         recs.forEach(partial(sendChangeToRemote, ctx.db, stores[i].name));
         return sum + recs.length;
       }, 0);
@@ -702,7 +747,7 @@ function sendRecordsChangedSinceSync(ctx) {
 }
 
 function doPushToRemote(ctx) {
-  return new Promise(function(resolve, reject) {
+  return new Promise((resolve, reject) => {
     ctx.db.recordsToSync.onZero = partial(resolve, ctx);
     sendRecordsChangedSinceSync(ctx);
   });
@@ -710,10 +755,10 @@ function doPushToRemote(ctx) {
 
 function getWs(db) {
   if (!db.wsPromise) {
-    db.wsPromise = new Promise(function(resolve, reject) {
+    db.wsPromise = new Promise((resolve, reject) => {
       db.ws = new WrappedSocket('ws://' + db.remote);
       db.ws.on('message', partial(handleIncomingMessage, db));
-      db.ws.on('open', function() {
+      db.ws.on('open', () => {
         resolve(db.ws);
       });
     });
@@ -726,10 +771,10 @@ function getSyncContext(db, storeNamesArgs) {
     return Promise.reject({type: 'AlreadySyncing'});
   }
   db.syncing = true;
-  var storeNames = storeNamesArgs.length ? toArray(storeNamesArgs) : Object.keys(db.stores);
-  return db.then(function() {
+  const storeNames = storeNamesArgs.length ? toArray(storeNamesArgs) : Object.keys(db.stores);
+  return db.then(() => {
     return getWs(db);
-  }).then(function(ws) {
+  }).then((ws) => {
     return {db: db, storeNames: storeNames};
   });
 }
@@ -739,60 +784,7 @@ function closeSyncContext(ctx) {
   ctx.db.disconnect();
 }
 
-SDBDatabase.prototype.connect = function() {
-  var db = this;
-  return db.then(function() {
-    return getWs(db).then(function(){});
-  });
-};
-
-SDBDatabase.prototype.disconnect = function() {
-  if (this.ws) {
-    this.ws.close();
-    this.wsPromise = null;
-  }
-};
-
-SDBDatabase.prototype.send = function(msg) {
-  return getWs(this).then(function(ws) {
-    ws.send(msg);
-  });
-};
-
-SDBDatabase.prototype.pushToRemote = function(/* storeNames */) {
-  return getSyncContext(this, arguments)
-  .then(doPushToRemote)
-  .then(closeSyncContext);
-};
-
-SDBDatabase.prototype.pullFromRemote = function(/* storeNames */) {
-  return getSyncContext(this, arguments)
-  .then(doPullFromRemote)
-  .then(closeSyncContext);
-};
-
-function doSync(db, continuously, storeNames) {
-  return getSyncContext(db, storeNames)
-  .then(doPullFromRemote)
-  .then(doPushToRemote)
-  .then(function(ctx) {
-    continuously ? db.continuousSync = true
-                 : closeSyncContext(ctx);
-  });
-}
-
-SDBDatabase.prototype.sync = function(storeNames, opts) {
-  if (arguments.length === 1 && !isArray(storeNames)) {
-    opts = storeNames;
-  }
-  storeNames = isString(storeNames) ? [storeNames]
-             : !isArray(storeNames) ? []
-                                    : storeNames;
-  var continuously = isObject(opts) && opts.continuously === true;
-  return doSync(this, continuously, storeNames);
-};
-
-exports.open = function(opts) {
+exports.open = (opts) => {
   return new SDBDatabase(opts);
 };
 
@@ -800,6 +792,6 @@ exports.patch = dffptch.patch;
 
 exports.diff = dffptch.diff;
 
-exports.open = function(opts) {
+exports.open = (opts) => {
   return new SDBDatabase(opts);
 };

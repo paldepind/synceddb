@@ -1,17 +1,17 @@
 (function() {
-  var stores = {
+  const stores = {
     tasks: [
       ['byCreation', 'createdAt']
     ]
   };
-  var db = syncedDB.open({
+  const db = syncedDB.open({
     name: 'todoApp',
     version: 1,
     stores: stores,
     remote: 'localhost:8080',
   });
 
-  var tasks = [];
+  const tasks = [];
 
   document.addEventListener('DOMContentLoaded', function() {
     db.tasks.on('add', function(e) {
@@ -32,7 +32,7 @@
     db.tasks.on('delete', function(e) {
       console.log('Todo deleted');
       console.log(e);
-      var idx;
+      let idx;
       tasks.forEach(function(task, i) {
         if (task.record.key === e.record.key) idx = i;
       });
@@ -51,9 +51,9 @@
     });
     db.sync('tasks', {continuously: true});
 
-    var createTaskElm = function(task) {
-      var list = document.getElementById('tasks');
-      var taskElm = document.createElement('li');
+    const createTaskElm = function(task) {
+      const list = document.getElementById('tasks');
+      const taskElm = document.createElement('li');
       tasks.push({record: task, elm: taskElm});
       taskElm.innerHTML = '<span>' + task.description + '</span><a class="delete">×</a>';
       taskElm.addEventListener('click', toggleDone.bind(null, task));
@@ -91,13 +91,13 @@
     }
 
     function toggleDone(task, ev) {
-      //var key = ev.target.id.slice(5);
+      //const key = ev.target.id.slice(5);
       task.finished = !task.finished;
       db.tasks.put(task);
     }
 
     function deleteTask(task, ev) {
-      //var key = ev.target.parentNode.id.slice(5);
+      //const key = ev.target.parentNode.id.slice(5);
       ev.preventDefault();
       ev.cancelBubble = true;
       console.log(task);
@@ -106,7 +106,7 @@
 
     document.getElementById('add-todo-form').addEventListener('submit', function(e) {
       e.preventDefault();
-      var desc = document.getElementById('todo-description').value;
+      const desc = document.getElementById('todo-description').value;
       document.getElementById('todo-description').value = '';
       db.tasks.put({
         description: desc,
@@ -116,7 +116,7 @@
     });
 
     document.getElementById('reset').addEventListener('click', function() {
-      var req = indexedDB.deleteDatabase('todoApp');
+      const req = indexedDB.deleteDatabase('todoApp');
       req.onsuccess = function() { location.reload(); };
     });
   });

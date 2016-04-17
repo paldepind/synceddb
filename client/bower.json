@@ -24,7 +24,7 @@
     "tests"
   ],
   "dependencies": {
-    "minivents-cuzzo": "~1.2.0",
+    "minivents-cuzzo": "~1.1.7",
     "node-assert": "*",
     "sinonjs": "~1.10.2",
     "dffptch": "*",
