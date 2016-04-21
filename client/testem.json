@@ -5,11 +5,9 @@
     "test/*.test.js"
   ],
   "serve_files": [
-    "./bower_components/sinonjs/sinon.js",
-    "./bower_components/node-assert/assert.js",
     "./dist/synceddb-global.js",
-    "test/*.test.js"
+    "./dist/main.test-bundled.js"
   ],
-  "before_tests": "npm run build",
+  "before_tests": "npm run build-test",
   "launch_in_dev": [ "firefox", "chromium" ]
 }

@@ -6,6 +6,7 @@
   "scripts": {
     "test": "testem",
     "build": "webpack; LIBRARY_TARGET=amd webpack",
+    "build-test": "npm run build; webpack --config ./test/webpack.config.js",
     "prepublish": "NODE_ENV=production npm run build"
   },
   "author": "Simon Friis Vindum",
@@ -15,8 +16,8 @@
     "babel-loader": "^6.2.4",
     "babel-preset-es2015-webpack": "^6.4.0",
     "dffptch": "^1.0.4",
-    "exports-loader": "^0.6.3",
     "minivents": "^1.2.0",
+    "sinon": "^2.0.0-pre",
     "sync-promise": "^1.0.1",
     "testem": "^1.6.0",
     "uglifyjs": "^2.4.10",

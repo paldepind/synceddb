@@ -1,4 +1,6 @@
-/* global assert, sinon */
+const sinon = require('sinon');
+const assert = require('assert');
+
 describe('SyncedDB', function() {
   const stores = {
     animals: [
