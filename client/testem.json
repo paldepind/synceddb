@@ -9,5 +9,6 @@
     "./dist/main.test-bundled.js"
   ],
   "before_tests": "npm run build-test",
-  "launch_in_dev": [ "firefox", "chromium" ]
+  "launch_in_dev": [ "firefox", "chromium" ],
+  "launch_in_ci": [ "firefox" ]
 }

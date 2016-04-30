@@ -11,7 +11,7 @@ module.exports = {
     path: __dirname,
     filename: outputFileName,
     library: 'syncedDB',
-    libraryTarget: isAmd ? 'amd' : 'this'
+    libraryTarget: isAmd ? 'amd' : 'var'
   },
   module: {
     loaders: [

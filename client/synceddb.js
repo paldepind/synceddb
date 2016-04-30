@@ -1,6 +1,7 @@
 // SyncedDB
 'use strict';
 
+require('es6-promise').polyfill();
 const dffptch = require('dffptch');
 const SyncPromise = require('sync-promise');
 const Events = require('minivents');
