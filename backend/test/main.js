@@ -1,27 +1,33 @@
-var WebSocket = require('ws');
-var assert = require('assert');
+'use strict';
 
-var Server = require('../server');
-var MemoryPersistence = require('../../persistence/memory');
+const WebSocket = require('ws');
+const assert = require('assert');
 
-var server = new Server({
-  port: 8080,
-  store: new MemoryPersistence(),
-});
+const Server = require('../server');
+const MemoryPersistence = require('../../persistence/memory');
 
 function socketConversation(ws, funcs) {
-  var r = funcs[0]();
+  const r = funcs[0]();
   if (r) ws.send(JSON.stringify(r));
-  var next = 1;
+  let next = 1;
   ws.onmessage = function(msg) {
-    var r = funcs[next++](JSON.parse(msg.data));
+    const r = funcs[next++](JSON.parse(msg.data));
     if (r) ws.send(JSON.stringify(r));
   };
 }
 
 describe('Backend', function() {
-  var ws = new WebSocket('ws://localhost:8080');
-  beforeEach(function() {
+  let server;
+  let ws;
+  before(function(done) {
+    MemoryPersistence.create().then(function(persistence) {
+      server = new Server({
+        port: 8080,
+        store: persistence,
+      });
+      ws = new WebSocket('ws://localhost:8080');
+      ws.on('open', done);
+    });
   });
   afterEach(function(done) {
     server.resetHandlers();
@@ -38,14 +44,14 @@ describe('Backend', function() {
       clientId: 'foo',
     }));
     ws.onmessage = function(msg) {
-      var data = JSON.parse(msg.data);
+      const data = JSON.parse(msg.data);
       assert.equal(data.type, 'sending-changes');
       assert.equal(data.nrOfRecordsToSync, 0);
       done();
     };
   });
   it('sends created records on request', function(done) {
-    var data1, data2;
+    let data1, data2;
     socketConversation(ws, [
       function() {
         return {
@@ -89,7 +95,6 @@ describe('Backend', function() {
     ]);
   });
   it('sends timestamps in ok response', function(done) {
-    var data1, data2;
     socketConversation(ws, [
       function() {
         return {
@@ -107,7 +112,7 @@ describe('Backend', function() {
     ]);
   });
   it('only sends changes after timestamp', function(done) {
-    var firstTimestamp;
+    let firstTimestamp;
     socketConversation(ws, [
       function() {
         return {
@@ -169,7 +174,6 @@ describe('Backend', function() {
         };
       },
       function(data) {
-        data1 = data;
         return {
           type: 'create',
           storeName: 'roads',
@@ -211,10 +215,10 @@ describe('Backend', function() {
       assert.equal(msg.type, 'connect');
       done();
     };
-    var newWs = new WebSocket('ws://localhost:8080');
+    new WebSocket('ws://localhost:8080');
   });
   it('calls custom create handler correctly', function(done) {
-    var called = false;
+    let called = false;
     server.handlers['create'] = function(clientData, store, msg, respond, broadcast) {
       called = true;
       assert.equal(msg.type, 'create');
@@ -239,7 +243,7 @@ describe('Backend', function() {
     ]);
   });
   it('is possible for handlers to store data on connected clients', function(done) {
-    var dataPersisted = false;
+    let dataPersisted = false;
     server.handlers['create'] = function(clientData, store, msg, respond, broadcast) {
       if (!clientData.test) {
         clientData.test = 'foobar';
@@ -275,12 +279,12 @@ describe('Backend', function() {
     ]);
   });
   it('only publish changes after changes has been requested', function(done) {
-    var ws2 = new WebSocket('ws://localhost:8080');
-    var ws2MsgCount = 0, wsMsgCount = 0;
+    const ws2 = new WebSocket('ws://localhost:8080');
+    let ws2MsgCount = 0, wsMsgCount = 0;
     ws.onmessage = function(msg) {
       wsMsgCount++;
       if (wsMsgCount === 1) {
-        var data = JSON.parse(msg.data);
+        const data = JSON.parse(msg.data);
         assert.equal(data.type, 'sending-changes');
         assert.equal(data.nrOfRecordsToSync, 2);
       } else if (wsMsgCount === 3) {

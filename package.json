@@ -1,0 +1,14 @@
+{
+  "scripts": {
+    "lint-all": "eslint --fix --ignore-path .gitignore \"**/*.js\""
+  },
+  "author": "Simon Friis Vindum",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/paldepind/synceddb/issues"
+  },
+  "homepage": "https://github.com/paldepind/synceddb",
+  "devDependencies": {
+    "eslint": "^2.8.0"
+  }
+}

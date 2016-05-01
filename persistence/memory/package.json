@@ -24,10 +24,9 @@
     "url": "https://github.com/paldepind/synceddb/issues"
   },
   "homepage": "https://github.com/paldepind/synceddb",
-  "dependencies": {
-    "bluebird": "^2.9.3"
-  },
+  "dependencies": {},
   "devDependencies": {
-    "synceddb-persistence-tests": "0.0.2"
+    "mocha": "^2.4.5",
+    "synceddb-persistence-tests": "0.0.1"
   }
 }

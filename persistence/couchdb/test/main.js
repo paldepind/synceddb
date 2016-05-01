@@ -1,7 +1,7 @@
-var couchdbPersistence = require('../index');
-var Tests = require('../../persistence-tests');
+const couchdbPersistence = require('../index');
+const Tests = require('../../persistence-tests');
 
-var opts = {
+const opts = {
   dbUrl: 'http://synceddb:mypass@localhost:5984/synceddb/',
 };
 

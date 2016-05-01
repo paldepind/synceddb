@@ -1,10 +1,10 @@
-var Server = require('../../backend');
+const Server = require('../../backend');
 
 // Persistence in memory
-var MemoryPersistence = require('../../persistence/memory');
+const MemoryPersistence = require('../../persistence/memory');
 
 MemoryPersistence.create().then(function(p) {
-  var server = new Server({
+  const server = new Server({
     port: 8080,
     store: p,
   });
@@ -48,7 +48,7 @@ MemoryPersistence.create().then(function(p) {
 
   server.handlers.authenticate = function(clientData, store, msg, send, broadcast) {
     console.log('Authentication message recieved');
-    var res = {type: 'auth-response'};
+    const res = {type: 'auth-response'};
     if (msg.token === 'token1') {
       clientData.authenticated = res.success = true;
       clientData.privileges = 'readonly';
