@@ -6,7 +6,7 @@ const isAmd = process.env.LIBRARY_TARGET === 'amd';
 const outputFileName = `dist/synceddb${isAmd ? '-amd' : '-global'}${isProduction ? '.min' : ''}.js`;
 
 module.exports = {
-  entry: Path.join(__dirname, 'synceddb.js'),
+  entry: ['./synceddb.js'],
   output: {
     path: __dirname,
     filename: outputFileName,
@@ -20,7 +20,7 @@ module.exports = {
         loader: 'babel',
         exclude: /(node_modules|bower_components)/,
         query: {
-          presets: ['es2015-webpack']
+          presets: ['es2015']
         }
       },
     ]

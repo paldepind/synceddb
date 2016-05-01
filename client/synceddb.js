@@ -1,16 +1,11 @@
 // SyncedDB
 'use strict';
 
-require('es6-promise').polyfill();
 const dffptch = require('dffptch');
 const SyncPromise = require('sync-promise');
 const Events = require('minivents');
 
 // General utility functions
-
-function toArray(arr) {
-  return [].slice.call(arr);
-}
 
 function eachKeyVal(obj, fn) {
   Object.keys(obj).forEach((key) => { fn(key, obj[key]); });
@@ -153,7 +148,7 @@ class SDBIndex {
 
   get(/* ranges */) {
     const index = this;
-    const ranges = toArray(arguments).map(IDBKeyRange.only);
+    const ranges = Array.from(arguments).map(IDBKeyRange.only);
     return doInStoreTx('readonly', index.store, (store, resolve, reject) => {
       return doIndexGet(index.name, ranges, store.IDBStore, resolve, reject);
     });
@@ -168,7 +163,7 @@ class SDBIndex {
 
   inRange(/* ranges */) {
     const index = this;
-    const ranges = toArray(arguments).map(createKeyRange);
+    const ranges = Array.from(arguments).map(createKeyRange);
     return doInStoreTx('readonly', index.store, (store, resolve, reject) => {
       return doIndexGet(index.name, ranges, store.IDBStore, resolve, reject);
     });
@@ -267,7 +262,7 @@ class SDBObjectStore {
   }
 
   get(/* keys */) {
-    const keys = toArray(arguments);
+    const keys = Array.from(arguments);
     return doInStoreTx('readonly', this, (store, resolve, reject) => {
       console.log('store');
       console.log(store);
@@ -281,7 +276,7 @@ class SDBObjectStore {
   }
 
   delete(/* keys */) {
-    const args = toArray(arguments);
+    const args = Array.from(arguments);
     return doInStoreTx('readwrite', this, (store, resolve, reject) => {
       const deletes = args.map((key) => {
         return deleteFromStore(store, extractKey(key), 'LOCAL');
@@ -291,7 +286,7 @@ class SDBObjectStore {
   }
 
   put(/* recs */) {
-    const recs = toArray(arguments);
+    const recs = Array.from(arguments);
     const ops = recs.map((rec) => {
       let newRec;
       if (isUndef(rec.key)) {
@@ -486,13 +481,13 @@ class SDBDatabase {
   }
 
   read() {
-    const args = toArray(arguments);
+    const args = Array.from(arguments);
     const fn = args.pop();
     return this.transaction(args, 'r', fn);
   }
 
   write() {
-    const args = toArray(arguments);
+    const args = Array.from(arguments);
     const fn = args.pop();
     return this.transaction(args, 'rw', fn);
   }
@@ -733,7 +728,7 @@ function doPullFromRemote(ctx) {
 
 function sendRecordsChangedSinceSync(ctx) {
   return ctx.db.transaction(ctx.storeNames, 'r', function() {
-    const stores = toArray(arguments);
+    const stores = Array.from(arguments);
     const gets = stores.map((store) => {
       return store.changedSinceSync.get(1);
     });
@@ -772,7 +767,7 @@ function getSyncContext(db, storeNamesArgs) {
     return Promise.reject({type: 'AlreadySyncing'});
   }
   db.syncing = true;
-  const storeNames = storeNamesArgs.length ? toArray(storeNamesArgs) : Object.keys(db.stores);
+  const storeNames = storeNamesArgs.length ? Array.from(storeNamesArgs) : Object.keys(db.stores);
   return db.then(() => {
     return getWs(db);
   }).then((ws) => {
