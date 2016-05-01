@@ -1,7 +1,8 @@
 {
   "framework": "mocha",
   "src_files": [
-    "synceddb.js",
+    "*.js",
+    "src/**.js",
     "test/*.test.js"
   ],
   "serve_files": [
