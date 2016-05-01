@@ -33,22 +33,21 @@ class Countdown {
 
 class WrappedSocket {
   constructor(url, protocol) {
-    const wws = this;
-    Events(wws);
+    Events(this);
     const ws = this.ws = new WebSocket(url, protocol);
     ws.onopen = () => {
       console.log('Connection open');
-      wws.emit('open');
+      this.emit('open');
     };
     ws.onerror = (error) => {
       console.log('Connection errror');
       console.log(error);
-      wws.emit('error', error);
+      this.emit('error', error);
     };
     ws.onclose = (e) => {
       console.log('Connection closed');
       console.log(e);
-      wws.emit('close', e);
+      this.emit('close', e);
     };
     ws.onmessage = (msg) => {
       console.log('Message recieved');
@@ -59,7 +58,7 @@ class WrappedSocket {
         data = msg.data;
       }
       console.log(data);
-      wws.emit('message', data);
+      this.emit('message', data);
     };
   }
   send(msg) {
@@ -119,25 +118,22 @@ class SDBIndex {
   }
 
   get(/* ranges */) {
-    const index = this;
     const ranges = Array.from(arguments).map(IDBKeyRange.only);
-    return doInStoreTx('readonly', index.store, (store, resolve, reject) => {
-      return doIndexGet(index.name, ranges, store.IDBStore, resolve, reject);
+    return doInStoreTx('readonly', this.store, (store, resolve, reject) => {
+      return doIndexGet(this.name, ranges, store.IDBStore, resolve, reject);
     });
   }
 
   getAll() {
-    const index = this;
-    return doInStoreTx('readonly', index.store, (store, resolve, reject) => {
-      return doIndexGet(index.name, [undefined], store.IDBStore, resolve, reject);
+    return doInStoreTx('readonly', this.store, (store, resolve, reject) => {
+      return doIndexGet(this.name, [undefined], store.IDBStore, resolve, reject);
     });
   }
 
   inRange(/* ranges */) {
-    const index = this;
     const ranges = Array.from(arguments).map(createKeyRange);
-    return doInStoreTx('readonly', index.store, (store, resolve, reject) => {
-      return doIndexGet(index.name, ranges, store.IDBStore, resolve, reject);
+    return doInStoreTx('readonly', this.store, (store, resolve, reject) => {
+      return doIndexGet(this.name, ranges, store.IDBStore, resolve, reject);
     });
   }
 }
@@ -213,22 +209,21 @@ function doPutRecord(store, op) {
 
 class SDBObjectStore {
   constructor(db, name, indexes, tx) {
-    const store = this;
-    store.name = name;
-    store.db = db;
-    store.indexes = indexes;
-    store.changedRecords = [];
-    store.messages = new Events();
-    store.tx = tx;
-    Events(store);
+    this.name = name;
+    this.db = db;
+    this.indexes = indexes;
+    this.changedRecords = [];
+    this.messages = new Events();
+    this.tx = tx;
+    Events(this);
     indexes.forEach((i) => {
-      store[i] = new SDBIndex(i, db, store);
+      this[i] = new SDBIndex(i, db, this);
     });
     if (!isUndefined(tx)) {
-      store.IDBStore = tx.objectStore(store.name);
+      this.IDBStore = tx.objectStore(this.name);
       tx.addEventListener('complete', () => {
-        emitChangeEvents(store.changedRecords, store.db.stores[store.name]);
-        store.changedRecords.length = 0;
+        emitChangeEvents(this.changedRecords, this.db.stores[this.name]);
+        this.changedRecords.length = 0;
       });
     }
   }
@@ -388,16 +383,15 @@ function doSync(db, continuously, storeNames) {
 
 class SDBDatabase {
   constructor(opts) {
-    const db = this;
-    Events(db);
-    db.name = opts.name;
-    db.remote = opts.remote;
-    db.version = opts.version;
-    db.recordsToSync = new Countdown();
-    db.changesLeftFromRemote = new Countdown();
-    db.messages = new Events();
-    db.recordsSentToRemote = {}; // Dictionary of records sent
-    db.stores = {};
+    Events(this);
+    this.name = opts.name;
+    this.remote = opts.remote;
+    this.version = opts.version;
+    this.recordsToSync = new Countdown();
+    this.changesLeftFromRemote = new Countdown();
+    this.messages = new Events();
+    this.recordsSentToRemote = {}; // Dictionary of records sent
+    this.stores = {};
     const stores = {};
     _.each(opts.stores, (indexes, storeName) => {
       stores[storeName] = indexes.concat([['changedSinceSync', 'changedSinceSync']]);
@@ -405,23 +399,22 @@ class SDBDatabase {
     // Create stores on db object
     _.each(stores, (indexes, storeName) => {
       const indexNames = indexes.map((idx) => { return idx[0]; });
-      const storeObj = new SDBObjectStore(db, storeName, indexNames);
-      db.stores[storeName] = storeObj;
+      const storeObj = new SDBObjectStore(this, storeName, indexNames);
+      this.stores[storeName] = storeObj;
       // Make stores available directly as properties on the db
       // Store shortcut should not override db properties
-      db[storeName] = db[storeName] || storeObj;
+      this[storeName] = this[storeName] || storeObj;
     });
-    db.sdbMetaData = new SDBObjectStore(db, 'sdbMetaData', []);
+    this.sdbMetaData = new SDBObjectStore(this, 'sdbMetaData', []);
     this.promise = new Promise((resolve, reject) => {
-      const req = indexedDB.open(db.name, db.version);
-      req.onupgradeneeded = partial(handleMigrations, db.version, stores, opts.migrations);
+      const req = indexedDB.open(this.name, this.version);
+      req.onupgradeneeded = partial(handleMigrations, this.version, stores, opts.migrations);
       req.onsuccess = (e) => {
-        db.db = req.result;
-        db.db.onversionchange = handleVersionChange;
-        resolve({db: db, e: e});
+        this.db = req.result;
+        this.db.onversionchange = handleVersionChange;
+        resolve({db: this, e: e});
       };
     });
-    return db;
   }
 
   then(fn) {
@@ -438,13 +431,12 @@ class SDBDatabase {
          : mode === 'read' ? 'readonly'
          : mode === 'rw'   ? 'readwrite'
                            : mode;
-    const db = this;
-    return db.then((res) => {
+    return this.then((res) => {
       return new Promise((resolve, reject) => {
-        const tx = db.db.transaction(storeNames, mode);
+        const tx = this.db.transaction(storeNames, mode);
         const stores = storeNames.map((s) => {
-          const store = s === 'sdbMetaData' ? db[s] : db.stores[s];
-          return new SDBObjectStore(db, s, store.indexes, tx);
+          const store = s === 'sdbMetaData' ? this[s] : this.stores[s];
+          return new SDBObjectStore(this, s, store.indexes, tx);
         });
         tx.oncomplete = resolve;
         fn.apply(null, stores);
@@ -465,9 +457,8 @@ class SDBDatabase {
   }
 
   connect() {
-    const db = this;
-    return db.then(() => {
-      return getWs(db).then(() => {});
+    return this.then(() => {
+      return getWs(this).then(() => {});
     });
   }
 
