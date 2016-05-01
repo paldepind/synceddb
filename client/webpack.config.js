@@ -1,5 +1,4 @@
 const webpack = require('webpack');
-const Path = require('path');
 
 const isProduction = process.env.NODE_ENV === 'production';
 const isAmd = process.env.LIBRARY_TARGET === 'amd';

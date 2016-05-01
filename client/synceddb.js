@@ -117,8 +117,8 @@ class SDBIndex {
     this.store = store;
   }
 
-  get(/* ranges */) {
-    const ranges = Array.from(arguments).map(IDBKeyRange.only);
+  get(...ranges) {
+    ranges = ranges.map(IDBKeyRange.only);
     return doInStoreTx('readonly', this.store, (store, resolve, reject) => {
       return doIndexGet(this.name, ranges, store.IDBStore, resolve, reject);
     });
@@ -130,8 +130,8 @@ class SDBIndex {
     });
   }
 
-  inRange(/* ranges */) {
-    const ranges = Array.from(arguments).map(createKeyRange);
+  inRange(...ranges) {
+    ranges = ranges.map(createKeyRange);
     return doInStoreTx('readonly', this.store, (store, resolve, reject) => {
       return doIndexGet(this.name, ranges, store.IDBStore, resolve, reject);
     });
@@ -228,8 +228,7 @@ class SDBObjectStore {
     }
   }
 
-  get(/* keys */) {
-    const keys = Array.from(arguments);
+  get(...keys) {
     return doInStoreTx('readonly', this, (store, resolve, reject) => {
       console.log('store');
       console.log(store);
@@ -242,18 +241,16 @@ class SDBObjectStore {
     });
   }
 
-  delete(/* keys */) {
-    const args = Array.from(arguments);
+  delete(...keys) {
     return doInStoreTx('readwrite', this, (store, resolve, reject) => {
-      const deletes = args.map((key) => {
+      const deletes = keys.map((key) => {
         return deleteFromStore(store, extractKey(key), 'LOCAL');
       });
       SyncPromise.all(deletes).then(resolve).catch(reject);
     });
   }
 
-  put(/* recs */) {
-    const recs = Array.from(arguments);
+  put(...recs) {
     const ops = recs.map((rec) => {
       let newRec;
       if (isUndefined(rec.key)) {
@@ -444,14 +441,12 @@ class SDBDatabase {
     });
   }
 
-  read() {
-    const args = Array.from(arguments);
+  read(...args) {
     const fn = args.pop();
     return this.transaction(args, 'r', fn);
   }
 
-  write() {
-    const args = Array.from(arguments);
+  write(...args) {
     const fn = args.pop();
     return this.transaction(args, 'rw', fn);
   }
@@ -475,14 +470,14 @@ class SDBDatabase {
     });
   }
 
-  pushToRemote(/* storeNames */) {
-    return getSyncContext(this, arguments)
+  pushToRemote(...storeNames) {
+    return getSyncContext(this, storeNames)
     .then(doPushToRemote)
     .then(closeSyncContext);
   }
 
-  pullFromRemote(/* storeNames */) {
-    return getSyncContext(this, arguments)
+  pullFromRemote(...storeNames) {
+    return getSyncContext(this, storeNames)
     .then(doPullFromRemote)
     .then(closeSyncContext);
   }
@@ -690,8 +685,7 @@ function doPullFromRemote(ctx) {
 }
 
 function sendRecordsChangedSinceSync(ctx) {
-  return ctx.db.transaction(ctx.storeNames, 'r', function() {
-    const stores = Array.from(arguments);
+  return ctx.db.transaction(ctx.storeNames, 'r', (...stores) => {
     const gets = stores.map((store) => {
       return store.changedSinceSync.get(1);
     });
@@ -725,12 +719,12 @@ function getWs(db) {
   return db.wsPromise;
 }
 
-function getSyncContext(db, storeNamesArgs) {
+function getSyncContext(db, storeNames) {
   if (db.syncing) {
     return Promise.reject({type: 'AlreadySyncing'});
   }
   db.syncing = true;
-  const storeNames = storeNamesArgs.length ? Array.from(storeNamesArgs) : Object.keys(db.stores);
+  storeNames = storeNames.length ? storeNames : Object.keys(db.stores);
   return db.then(() => {
     return getWs(db);
   }).then((ws) => {
