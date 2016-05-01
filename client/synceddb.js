@@ -4,41 +4,13 @@
 const dffptch = require('dffptch');
 const SyncPromise = require('sync-promise');
 const Events = require('minivents');
+const _ = require('underscore');
+const {isString, isNumber, isFunction, isUndefined, isObject, partial, isArray} = require('underscore');
 
 // General utility functions
 
-function eachKeyVal(obj, fn) {
-  Object.keys(obj).forEach((key) => { fn(key, obj[key]); });
-}
-
-function partial() {
-  return Function.bind.apply(arguments[0], arguments);
-}
-
-function isObject(o) {
-  return o !== null && typeof o === 'object';
-}
-
-const isArray = Array.isArray;
-
-function isString(s) {
-  return typeof s === 'string';
-}
-
-function isNum(n) {
-  return typeof n === 'number';
-}
-
-function isFunc(f) {
-  return typeof f === 'function';
-}
-
-function isUndef(x) {
-  return x === undefined;
-}
-
 function isKey(k) {
-  return isString(k) || isNum(k);
+  return isString(k) || isNumber(k);
 }
 
 function copyRecord(obj) {
@@ -186,7 +158,7 @@ function doGet(IDBStore, key, getDeleted) {
   return new SyncPromise((resolve, reject) => {
     const req = IDBStore.get(key);
     req.onsuccess = () => {
-      if (!isUndef(req.result) &&
+      if (!isUndefined(req.result) &&
           (!req.result.deleted || getDeleted)) {
         resolve(req.result);
       } else {
@@ -252,7 +224,7 @@ class SDBObjectStore {
     indexes.forEach((i) => {
       store[i] = new SDBIndex(i, db, store);
     });
-    if (!isUndef(tx)) {
+    if (!isUndefined(tx)) {
       store.IDBStore = tx.objectStore(store.name);
       tx.addEventListener('complete', () => {
         emitChangeEvents(store.changedRecords, store.db.stores[store.name]);
@@ -289,7 +261,7 @@ class SDBObjectStore {
     const recs = Array.from(arguments);
     const ops = recs.map((rec) => {
       let newRec;
-      if (isUndef(rec.key)) {
+      if (isUndefined(rec.key)) {
         newRec = true;
         rec.key = Math.random().toString(36);
       } else {
@@ -372,7 +344,7 @@ function createKeyRange(r) {
 
 function callMigrationHooks(data, migrations, newV, curV) {
   while(curV++ < newV)
-    if (isFunc(migrations[curV]))
+    if (isFunction(migrations[curV]))
       migrations[curV](data.db, data.e);
 }
 
@@ -387,7 +359,7 @@ const handleMigrations = (version, storeDeclaration, migrationHooks, e) => {
     metaStore = db.createObjectStore('sdbMetaData', {keyPath: 'key'});
     metaStore.put({key: 'meta'});
   }
-  eachKeyVal(storeDeclaration, (storeName, indexes) => {
+  _.each(storeDeclaration, (indexes, storeName) => {
     let store;
     if (existingStores.contains(storeName)) {
       store = req.transaction.objectStore(storeName);
@@ -427,11 +399,11 @@ class SDBDatabase {
     db.recordsSentToRemote = {}; // Dictionary of records sent
     db.stores = {};
     const stores = {};
-    eachKeyVal(opts.stores, (storeName, indexes) => {
+    _.each(opts.stores, (indexes, storeName) => {
       stores[storeName] = indexes.concat([['changedSinceSync', 'changedSinceSync']]);
     });
     // Create stores on db object
-    eachKeyVal(stores, (storeName, indexes) => {
+    _.each(stores, (indexes, storeName) => {
       const indexNames = indexes.map((idx) => { return idx[0]; });
       const storeObj = new SDBObjectStore(db, storeName, indexNames);
       db.stores[storeName] = storeObj;
@@ -678,7 +650,7 @@ const handleIncomingMessageByType = {
           record.changedSinceSync = 0;
           record.version = msg.newVersion;
           delete record.remoteOriginal;
-          if (!isUndef(msg.newKey)) {
+          if (!isUndefined(msg.newKey)) {
             record.key = msg.newKey;
             store.IDBStore.delete(msg.key);
           }
@@ -699,7 +671,7 @@ const handleIncomingMessageByType = {
     }
     const f = isString(msg.storeName) ? db.stores[msg.storeName].handleReject
                                     : db.handleReject;
-    if (!isFunc(f)) {
+    if (!isFunction(f)) {
       throw new Error('Reject message recieved from remote but no reject handler is supplied');
     }
     db.stores[msg.storeName].get(msg.key).then((record) => {
@@ -715,7 +687,7 @@ function handleIncomingMessage(db, msg) {
   const handler = handleIncomingMessageByType[msg.type];
   const target = isString(msg.storeName) ? db.stores[msg.storeName].messages
                                        : db.messages;
-  isFunc(handler) ? handler(db, db.ws, msg)
+  isFunction(handler) ? handler(db, db.ws, msg)
                   : target.emit(msg.type, msg);
 }
 
