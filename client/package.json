@@ -4,7 +4,8 @@
   "description": "An IndexedDB convenience wrapper with syncing",
   "main": "synceddb.js",
   "scripts": {
-    "test": "testem",
+    "test": "testem ci",
+    "test-dev": "testem",
     "build": "webpack; LIBRARY_TARGET=amd webpack",
     "build-test": "npm run build; webpack --config ./test/webpack.config.js",
     "prepublish": "NODE_ENV=production npm run build"
@@ -16,6 +17,7 @@
     "babel-loader": "^6.2.4",
     "babel-preset-es2015-webpack": "^6.4.0",
     "dffptch": "^1.0.4",
+    "es6-promise": "^3.1.2",
     "minivents": "^1.2.0",
     "sinon": "^2.0.0-pre",
     "sync-promise": "^1.0.1",
