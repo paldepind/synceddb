@@ -1,5 +1,8 @@
 SyncedDB
 ========
+
+[![Build Status](https://travis-ci.org/paldepind/synceddb.svg?branch=master)](https://travis-ci.org/paldepind/synceddb)
+
 SyncedDB makes it easy to write __offline-first__ applications with
 __real-time__ syncing and server-side __persistence__.
 
