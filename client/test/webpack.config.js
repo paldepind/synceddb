@@ -15,7 +15,7 @@ module.exports = {
         loader: 'babel',
         exclude: /(node_modules|bower_components)/,
         query: {
-          presets: ['es2015-webpack']
+          presets: ['es2015']
         }
       },
     ]

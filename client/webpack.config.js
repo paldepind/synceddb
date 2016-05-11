@@ -1,12 +1,16 @@
 const webpack = require('webpack');
-const Path = require('path');
 
 const isProduction = process.env.NODE_ENV === 'production';
 const isAmd = process.env.LIBRARY_TARGET === 'amd';
 const outputFileName = `dist/synceddb${isAmd ? '-amd' : '-global'}${isProduction ? '.min' : ''}.js`;
 
+const plugins = [];
+if (isProduction) {
+  plugins.push('transform-remove-console');
+}
+
 module.exports = {
-  entry: Path.join(__dirname, 'synceddb.js'),
+  entry: ['./synceddb.js'],
   output: {
     path: __dirname,
     filename: outputFileName,
@@ -20,8 +24,9 @@ module.exports = {
         loader: 'babel',
         exclude: /(node_modules|bower_components)/,
         query: {
-          presets: ['es2015-webpack']
-        }
+          presets: ['es2015'],
+          plugins,
+        },
       },
     ]
   },
