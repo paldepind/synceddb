@@ -27,6 +27,6 @@
   "dependencies": {},
   "devDependencies": {
     "mocha": "^2.4.5",
-    "synceddb-persistence-tests": "0.0.1"
+    "synceddb-persistence-tests": "0.0.2"
   }
 }
