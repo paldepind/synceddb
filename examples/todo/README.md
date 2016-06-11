@@ -7,6 +7,7 @@ Try it
 Get the repository
 ```
 git clone https://github.com/paldepind/synceddb.git
+cd synceddb/
 ```
 Get dependencies
 ```
@@ -14,7 +15,7 @@ npm run build
 ```
 Go to the todo example directory:
 ```
-cd synceddb/examples/todo
+cd examples/todo
 ```
 Start server
 ```
