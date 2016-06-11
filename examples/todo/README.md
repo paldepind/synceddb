@@ -7,11 +7,14 @@ Try it
 Get the repository
 ```
 git clone https://github.com/paldepind/synceddb.git
-cd synceddb/examples/todo
 ```
 Get dependencies
 ```
-npm install
+npm run build
+```
+Go to the todo example directory:
+```
+cd synceddb/examples/todo
 ```
 Start server
 ```
