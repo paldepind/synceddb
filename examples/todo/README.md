@@ -6,8 +6,7 @@ Try it
 
 Get the repository
 ```
-git clone https://github.com/paldepind/synceddb.git
-cd synceddb/
+git clone https://github.com/paldepind/synceddb.git && cd synceddb/
 ```
 Get dependencies
 ```
