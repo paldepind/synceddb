@@ -99,7 +99,12 @@ class Server {
     const server = this;
     server.resetHandlers();
     server.store = opts.store;
-    server.wss = new WebSocketServer({port: opts.port || 8080});
+    if (opts.server) {
+      server.wss = new WebSocketServer({server: opts.server});
+    }
+    else {
+      server.wss = new WebSocketServer({port: opts.port || 8080});
+    }
     server.wss.on('connection', (ws) => {
       ws.clientData = {};
       const handleMsg = handleMsgFn(server, ws);
