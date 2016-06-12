@@ -2,7 +2,7 @@
   "scripts": {
     "lint": "eslint --fix --ignore-path .gitignore \"**/*.js\"",
     "test": "pwd; ls; bash ./runtests.sh",
-    "build": "npm i; cd backend; npm i; cd ../client; npm i; webpack"
+    "prepublish": "cd backend; npm i; cd ../client; npm i"
   },
   "author": "Simon Friis Vindum",
   "license": "MIT",
@@ -11,7 +11,6 @@
   },
   "homepage": "https://github.com/paldepind/synceddb",
   "devDependencies": {
-    "eslint": "^2.8.0",
-    "webpack": "^1.13.1"
+    "eslint": "^2.8.0"
   }
 }
