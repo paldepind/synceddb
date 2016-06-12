@@ -10,7 +10,7 @@ git clone https://github.com/paldepind/synceddb.git && cd synceddb/
 ```
 Get dependencies
 ```
-npm run build
+npm install
 ```
 Go to the todo example directory:
 ```
