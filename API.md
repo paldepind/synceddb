@@ -470,6 +470,7 @@ server.handle.create(function(clientData, store, msg, respond, broadcast) {
 
 __Arguments__
 * `options` (object) - options object with the following properties
+  * `server` (HTTP server) - the HTTP server created with http.createServer(), otherwise it will create it
   * `port` (integer) - the port that the Web Socket server should listen at
   * `store` (object) - an instance of a persistence strategy
 

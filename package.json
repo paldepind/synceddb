@@ -1,7 +1,8 @@
 {
   "scripts": {
     "lint": "eslint --fix --ignore-path .gitignore \"**/*.js\"",
-    "test": "pwd; ls; bash ./runtests.sh"
+    "test": "pwd; ls; bash ./runtests.sh",
+    "prepublish": "cd backend; npm i; cd ../client; npm i"
   },
   "author": "Simon Friis Vindum",
   "license": "MIT",

@@ -6,12 +6,15 @@ Try it
 
 Get the repository
 ```
-git clone https://github.com/paldepind/synceddb.git
-cd synceddb/examples/todo
+git clone https://github.com/paldepind/synceddb.git && cd synceddb/
 ```
 Get dependencies
 ```
 npm install
+```
+Go to the todo example directory:
+```
+cd examples/todo
 ```
 Start server
 ```
