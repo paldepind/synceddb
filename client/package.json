@@ -8,7 +8,7 @@
     "test-dev": "testem",
     "build": "webpack && LIBRARY_TARGET=amd webpack",
     "build-test": "webpack && webpack --config ./test/webpack.config.js",
-    "prepublish": "NODE_ENV=production npm run build"
+    "prepublish": "npm run build; NODE_ENV=production npm run build"
   },
   "author": "Simon Friis Vindum",
   "license": "MIT",
