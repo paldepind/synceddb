@@ -26,7 +26,7 @@
   },
   "homepage": "https://github.com/paldepind/synceddb",
   "dependencies": {
-    "ws": "^0.7.0"
+    "ws": "^0.8.0"
   },
   "devDependencies": {
     "mocha": "^2.4.5"
