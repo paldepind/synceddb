@@ -1,14 +1,33 @@
 language: node_js
+
 node_js:
   - "6"
+
+services:
+  - mysql
+  - postgresql
+  - couchdb
+
 before_script:
   - export DISPLAY=:99.0
   - sh -e /etc/init.d/xvfb start
   - sleep 5
+
+  - mysql -uroot -e "CREATE DATABASE synceddb"
+  - mysql -uroot -e "CREATE USER synceddb IDENTIFIED BY 'mypass'" synceddb
+  - mysql -uroot -e "GRANT ALL PRIVILEGES ON synceddb.* TO synceddb@localhost IDENTIFIED BY 'mypass'" synceddb
+
+  - psql -c 'CREATE DATABASE synceddb;' -U postgres
+
+  - curl -X PUT localhost:5984/synceddb
+  - curl -X PUT localhost:5984/_config/admins/synceddb -d '"mypass"'
+
 env:
   - CXX=g++-4.8 
+
 addons:
   firefox: latest
+  postgresql: "9.3"
   apt:
     sources:
       - ubuntu-toolchain-r-test

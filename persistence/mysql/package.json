@@ -29,6 +29,7 @@
     "mysql": "^2.5.4"
   },
   "devDependencies": {
+    "mocha": "^2.4.5",
     "synceddb-persistence-tests": "0.0.2"
   }
 }

@@ -29,6 +29,7 @@
     "pg": "^4.2.0"
   },
   "devDependencies": {
+    "mocha": "^2.4.5",
     "synceddb-persistence-tests": "0.0.2"
   }
 }

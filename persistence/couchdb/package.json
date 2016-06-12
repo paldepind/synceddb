@@ -24,10 +24,11 @@
   },
   "homepage": "https://github.com/paldepind/synceddb",
   "dependencies": {
-    "bluebird": "^2.9.3"
+    "bluebird": "^2.9.3",
+    "request": "^2.53.0"
   },
   "devDependencies": {
-    "request": "^2.53.0",
+    "mocha": "^2.4.5",
     "synceddb-persistence-tests": "0.0.2"
   }
 }
