@@ -1,6 +1,6 @@
 {
   "name": "synceddb-server",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Library for implementing SyncedDB servers.",
   "main": "server.js",
   "directories": {
