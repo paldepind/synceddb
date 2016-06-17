@@ -87,7 +87,7 @@ db.tasks.on('add', function(e) { // A new task element pushed from remote.
 
 // Start syncing continuously, the server will now.
 // push and pull changes in real time.
-db.syncContinuously('tasks');
+db.sync('tasks', {continuously: true});
 ```
 
 __Server__
