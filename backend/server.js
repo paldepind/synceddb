@@ -100,8 +100,8 @@ class Server {
     this.resetHandlers();
     this.store = opts.store;
     const wssArg = blacklist(opts, 'store');
-    wssArg.port = wssArg.port || 8080;
-    this.wss = new WebSocketServer(wssArg);
+    if (!wssArg.server && !wssArg.port) wssArg.port = 8080;
+    this.wss = new WebSocketServer(opts);
     this.wss.on('connection', (ws) => {
       ws.clientData = {};
       const handleMsg = handleMsgFn(this, ws);
