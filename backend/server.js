@@ -1,4 +1,5 @@
 'use strict';
+const blacklist = require('blacklist');
 const WebSocketServer = require('ws').Server;
 
 const handleCreateMsg = (clientData, store, msg, respond, broadcast) => {
@@ -89,25 +90,21 @@ function handleMsgFn(server, ws) {
   return (msg) => {
     const data = JSON.parse(msg);
     if (data.type && data.type in server.handlers) {
-      server.handlers[data.type](ws.clientData, server.store, data, s, b);
+      server.handlers[data.type](ws.clientData, server.store, data, s, b, ws.upgradeReq);
     }
   };
 }
 
 class Server {
   constructor(opts) {
-    const server = this;
-    server.resetHandlers();
-    server.store = opts.store;
-    if (opts.server) {
-      server.wss = new WebSocketServer({server: opts.server});
-    }
-    else {
-      server.wss = new WebSocketServer({port: opts.port || 8080});
-    }
-    server.wss.on('connection', (ws) => {
+    this.resetHandlers();
+    this.store = opts.store;
+    const wssArg = blacklist(opts, 'store');
+    wssArg.port = wssArg.port || 8080;
+    this.wss = new WebSocketServer(wssArg);
+    this.wss.on('connection', (ws) => {
       ws.clientData = {};
-      const handleMsg = handleMsgFn(server, ws);
+      const handleMsg = handleMsgFn(this, ws);
       handleMsg('{"type":"connect"}');
       ws.on('message', handleMsg);
     });

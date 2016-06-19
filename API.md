@@ -444,8 +444,9 @@ at construction.
 
 __Properties__
 
-* `handlers` (object) - a mapper from message types to handler functions,
-  the handler is called like this: `handler(clientData, store, msg, sendFn, broadcastFn)`
+* `handlers` (object) - a mapper from message types to handler functions.
+  the handler is called like this: `handler(clientData, store, msg, sendFn, broadcastFn, opt_upgradeReq)`.
+  `opt_upgradeReq` is passed only when `server` is specified to the constructor.
 
 ### Server.defaultHandlers
 
@@ -470,9 +471,11 @@ server.handle.create(function(clientData, store, msg, respond, broadcast) {
 
 __Arguments__
 * `options` (object) - options object with the following properties
+  * `store` (object) - an instance of a persistence strategy
   * `server` (HTTP server) - the HTTP server created with http.createServer(), otherwise it will create it
   * `port` (integer) - the port that the Web Socket server should listen at
-  * `store` (object) - an instance of a persistence strategy
+
+Besides `options.store`, `options` object is also passed as an argument of `ws.Server` constructor. See [the full document of available arguments](https://github.com/websockets/ws/blob/master/doc/ws.md#new-wsserveroptions-callback).
 
 __Returns__
 A new server.
@@ -480,10 +483,11 @@ A new server.
 __Example__
 
 ```javascript
-var store = new MemoryPersistence();
-var server = new Server({
-  port: 3001,
-  persistence: new MemoryPersistence(),
+MemoryPersistence.create().then(function(persistence) {
+  var server = new Server({
+    port: 3001,
+    persistence: persistence
+  });
 });
 ```
 
