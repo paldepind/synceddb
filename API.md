@@ -480,10 +480,11 @@ A new server.
 __Example__
 
 ```javascript
-var store = new MemoryPersistence();
-var server = new Server({
-  port: 3001,
-  persistence: new MemoryPersistence(),
+MemoryPersistence.create().then(function(persistence) {
+  var server = new Server({
+    port: 3001,
+    persistence: persistence
+  });
 });
 ```
 
