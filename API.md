@@ -471,9 +471,11 @@ server.handle.create(function(clientData, store, msg, respond, broadcast) {
 
 __Arguments__
 * `options` (object) - options object with the following properties
+  * `store` (object) - an instance of a persistence strategy
   * `server` (HTTP server) - the HTTP server created with http.createServer(), otherwise it will create it
   * `port` (integer) - the port that the Web Socket server should listen at
-  * `store` (object) - an instance of a persistence strategy
+
+Besides `options.store`, `options` object is also passed as an argument of `ws.Server` constructor. See [the full document of available arguments](https://github.com/websockets/ws/blob/master/doc/ws.md#new-wsserveroptions-callback).
 
 __Returns__
 A new server.

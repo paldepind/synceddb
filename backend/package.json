@@ -26,6 +26,7 @@
   },
   "homepage": "https://github.com/paldepind/synceddb",
   "dependencies": {
+    "blacklist": "^1.1.2",
     "ws": "^0.8.0"
   },
   "devDependencies": {

@@ -1,4 +1,5 @@
 'use strict';
+const blacklist = require('blacklist');
 const WebSocketServer = require('ws').Server;
 
 const handleCreateMsg = (clientData, store, msg, respond, broadcast) => {
@@ -98,12 +99,9 @@ class Server {
   constructor(opts) {
     this.resetHandlers();
     this.store = opts.store;
-    if (opts.server) {
-      this.wss = new WebSocketServer({server: opts.server});
-    }
-    else {
-      this.wss = new WebSocketServer({port: opts.port || 8080});
-    }
+    const wssArg = blacklist(opts, 'store');
+    wssArg.port = wssArg.port || 8080;
+    this.wss = new WebSocketServer(wssArg);
     this.wss.on('connection', (ws) => {
       ws.clientData = {};
       const handleMsg = handleMsgFn(this, ws);
