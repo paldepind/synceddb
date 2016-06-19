@@ -89,7 +89,7 @@ function handleMsgFn(server, ws) {
   return (msg) => {
     const data = JSON.parse(msg);
     if (data.type && data.type in server.handlers) {
-      server.handlers[data.type](ws.clientData, server.store, data, s, b);
+      server.handlers[data.type](ws.clientData, server.store, data, s, b, ws.upgradeReq);
     }
   };
 }

@@ -444,8 +444,9 @@ at construction.
 
 __Properties__
 
-* `handlers` (object) - a mapper from message types to handler functions,
-  the handler is called like this: `handler(clientData, store, msg, sendFn, broadcastFn)`
+* `handlers` (object) - a mapper from message types to handler functions.
+  the handler is called like this: `handler(clientData, store, msg, sendFn, broadcastFn, opt_upgradeReq)`.
+  `opt_upgradeReq` is passed only when `server` is specified to the constructor.
 
 ### Server.defaultHandlers
 
