@@ -96,18 +96,17 @@ function handleMsgFn(server, ws) {
 
 class Server {
   constructor(opts) {
-    const server = this;
-    server.resetHandlers();
-    server.store = opts.store;
+    this.resetHandlers();
+    this.store = opts.store;
     if (opts.server) {
-      server.wss = new WebSocketServer({server: opts.server});
+      this.wss = new WebSocketServer({server: opts.server});
     }
     else {
-      server.wss = new WebSocketServer({port: opts.port || 8080});
+      this.wss = new WebSocketServer({port: opts.port || 8080});
     }
-    server.wss.on('connection', (ws) => {
+    this.wss.on('connection', (ws) => {
       ws.clientData = {};
-      const handleMsg = handleMsgFn(server, ws);
+      const handleMsg = handleMsgFn(this, ws);
       handleMsg('{"type":"connect"}');
       ws.on('message', handleMsg);
     });
