@@ -4,13 +4,13 @@ SyncedDB persistence providers
 The SyncedDB NodeJS server decouples persistence from the rest of the servers
 functionality. This makes it possible for the server to use different
 databases and storage formats. It furthemore makes it possible for users
-to extend the defualt persistence providers their own specific needs.
+to extend the default persistence providers their own specific needs.
 
 Persistence interface
 ---------------------
 
 A module that implements the persistence interface must export a function
-named `open`. Once called, with arguments specific for the persistence strategy,
+named `create`. Once called, with arguments specific for the persistence strategy,
 it must return an object with the following methods:
 
 ### persistence.saveChange(change)
