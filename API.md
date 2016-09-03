@@ -162,7 +162,7 @@ Synchronize the local database with the remote. This fetches and applies all cha
 since the last synchronization. Afterwards it sends all local changes to the remote.
 
 __Arguments__
-  * \[`storeNames`\] (string|array) - The store or stores that should be synced to the remote.
+  * \[`storeNames`\] (string|array) - The store or stores that should be synced to the remote. If you omit the argument, all stores will be the targets.
   * \[`options`\] (object) - Options regarding how the sync is performed
     * `continuously` (boolean) - Whether or not the synchronization should continue after all changes
       at the time of calling `sync` has been synchronized.
