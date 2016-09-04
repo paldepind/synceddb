@@ -406,6 +406,10 @@ db.products.byValue.getAll().then(function(records) {
 __Arguments__
 * `range` (...object) - a range to query for
 
+The object accepts following keys:
+- `gt` or `gte`: Records that are "greater than" or "greater than and equal to" a passed argument will be returned
+- `lt` or `lte`: Records that are "less than" or "less than and equal to" a passed argument will be returned
+
 __Returns__
 A promise resolved with an array of all records that are contained in one
 of the ranges queried for. If no matching records was found an empty array will
