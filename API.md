@@ -5,7 +5,30 @@ Table of contents
 =================
 
 - [Client API documentation](#client-api-documentation)
+  - [syncedDB.open(options)](#synceddbopenoptions)
+  - [SDBDatabase](#sdbdatabase)
+  - [SDBDatabase#transaction(storeNames, mode, callback)](#sdbdatabasetransaction)
+  - [SDBDatabase#read(storeName, callback)](#sdbdatabaseread)
+  - [SDBDatabase#write(storeName, callback)](#sdbdatabasewrite)
+  - [SDBDatabase#sync(...storeNames, options)](#sdbdatabasesync)
+  - [SDBDatabase#connect()](#sdbdatabaseconnect)
+  - [SDBDatabase#disconnect()](#sdbdatabasedisconnect)
+  - [SDBStore](#sdbstore)
+  - [SDBStore#get(...keys)](#sdbstoreget)
+  - [SDBStore#put(...records)](#sdbstoreput)
+  - [SDBStore#delete(...keys)](#sdbstoredelete)
+  - [SDBIndex](#sdbindex)
+  - [SDBIndex#get(...values)](#sdbindexget)
+  - [SDBIndex#getAll()](#sdbindexgetall)
+  - [SDBIndex#inRange(...ranges)](#sdbindexinrange)
+  - [Database declarations](#database-declarations)
+  - [Events](#events)
 - [Server API documentation](#server-api-documentation)
+  - [Server](#server)
+  - [Server.defaultHandlers](#serverdefaulthandlers)
+  - [new Server(options)](#new-serveroptions)
+  - [Server#resetHandlers()](#serverresethandlers)
+  - [Server#close()](#serverclose)
 
 Client API documentation
 ========================
@@ -29,7 +52,7 @@ __Returns__
 __Example__
 
 ```javascript
-var db = syncedDB.open({
+syncedDB.open({
   name: 'mydb',
   version: 3,
   stores: {
@@ -45,12 +68,12 @@ var db = syncedDB.open({
     ],
   },
   migrations: {
-    2: function(IDBDatabase, event) { /* do stuff when upgraded to version 2*/ },
-    3: function(IDBDatabase, event) { /* do other stuff on upgrato to version 3 */ },
+    2: (IDBDatabase, event) => { /* do stuff when upgraded to version 2*/ },
+    3: (IDBDatabase, event) => { /* do other stuff on upgrato to version 3 */ },
   }
-}).then(function(db) {
+}).then((db) => {
   // Db was opened successfully.
-}).catch(function(err) {
+}).catch((err) => {
   // Opening db failed.
 });
 ```
@@ -82,7 +105,7 @@ __Events__
 | ---------------- | ----------- |
 | `sync-initiated` |             |
 
-### SDBDatabase#transaction
+### SDBDatabase#transaction(storeNames, mode, callback)
 Opens a transaction on the database in either readonly or readwrite mode and
 including the specified list of stores.
 
@@ -102,14 +125,14 @@ error happens inside the transaction.
 __Example__
 
 ```
-db.transaction(['orders', 'employees'], 'read', function(orders, employees) {
+db.transaction(['orders', 'employees'], 'read', (orders, employees) => {
   // Do stuff in transaction.
-}).then(function() {
+}).then(() => {
   // Transaction finished successfully.
 });
 ```
 
-### SDBDatabase#read
+### SDBDatabase#read(storeName, callback)
 Opens a readonly transaction on the database and including the specified list
 of stores.
 
@@ -128,12 +151,12 @@ error happens inside the transaction.
 __Example__
 
 ```
-db.connect().then(function() {
-  db.
+db.read('orders', 'employees', (orders, employees) => {
+  // The local books store can be used with read transaction
 });
 ```
 
-### SDBDatabase#write
+### SDBDatabase#write(storeName, callback)
 Opens a readwrite transaction on the database and including the specified list
 of stores.
 
@@ -152,17 +175,17 @@ error happens inside the transaction.
 __Example__
 
 ```
-db.connect().then(function() {
-  db.
+db.write('orders', 'employees', (orders, employees) => {
+  // The local books store can be used with write transaction
 });
 ```
 
-### SDBDatabase#sync()
+### SDBDatabase#sync(...storeNames, options)
 Synchronize the local database with the remote. This fetches and applies all changes from the remote
 since the last synchronization. Afterwards it sends all local changes to the remote.
 
 __Arguments__
-  * \[`storeNames`\] (string|array) - The store or stores that should be synced to the remote.
+  * \[`storeNames`\] (string|array) - The store or stores that should be synced to the remote. If you omit the argument, all stores will be the targets.
   * \[`options`\] (object) - Options regarding how the sync is performed
     * `continuously` (boolean) - Whether or not the synchronization should continue after all changes
       at the time of calling `sync` has been synchronized.
@@ -175,7 +198,7 @@ been synchronized.
 __Example__
 
 ```javascript
-db.sync('books').then(function() {
+db.sync('books').then(() => {
   // The local books store is now up to date with the server.
 });
 ```
@@ -196,7 +219,7 @@ error happens while trying to connect.
 __Example__
 
 ```
-db.connect().then(function() {
+db.connect().then(() => {
   // Connection is established.
 });
 ```
@@ -215,7 +238,7 @@ Nothing
 __Example__
 
 ```
-db.connect().then(function() {
+db.connect().then(() => {
   // We are connected.
   db.disconnect();
   // Now disconnected.
@@ -244,7 +267,7 @@ Name     | Description
 `delete` | A record has been deleted. Event handler is passed a change event
 `synced` | A record has been synced to the remote. Event handler is passed the key of the record and the record |
 
-### SDBStore#get
+### SDBStore#get(...keys)
 Get a record from a store by key. If the store is accessed outside of a transaction
 a transaction will implicitly be acquired.
 
@@ -261,20 +284,20 @@ be found.
 __Example__
 
 ```javascript
-db.products.get(36).then(function(product) {
+db.products.get(36).then((product) => {
   // Do something with the product with the primary key 36.
-}).reject(function(err) {
+}).reject((err) => {
   if (err.type === 'KeyNotFoundError') {
     // No record exists with the key 36.
   }
 });
 
-db.products.get(fooId, barId).then(function(foo, bar) {
+db.products.get(fooId, barId).then((foo, bar) => {
   // Do something with the product having the primary key 36.
 });
 ```
 
-### SDBStore#put
+### SDBStore#put(...records)
 Add or insert one or more records into a store. If the store is accessed
 outside of a transaction a transaction will implicitly be acquired.
 
@@ -289,18 +312,18 @@ A promise resolved with an array of the keys of the passed records.
 __Example__
 
 ```javascript
-var rabbit = {
+const rabbit = {
   type: 'rabbit',
   name: 'Thumper',
   color: 'grey'
 };
-db.animals.put(rabbit).then(function(key) {
+db.animals.put(rabbit).then((key) => {
   // Record has been created
   assert.equal(rabbit.key, key);
 });
 ```
 
-### SDBStore#delete
+### SDBStore#delete(...keys)
 Delete a record from a store by key or by a record with. If the store is
 accessed outside of a transaction a transaction will implicitly be acquired.
 
@@ -315,15 +338,15 @@ A promise resolved when all records has been successfully deleted.
 __Example__
 
 ```javascript
-db.employees.delete(12).then(function() {
+db.employees.delete(12).then(() => {
   // Employee with key 12 deleted
 });
 
-var newAnimal = {type: 'dog', age: 17, name: 'Sally'};
-db.animals.put(newAnimal).then(function(newKey) {
+const newAnimal = {type: 'dog', age: 17, name: 'Sally'};
+db.animals.put(newAnimal).then((newKey) => {
   // Animal has been created
   return db.animals.delete(newKey);
-}).then(function() {
+}).then(() => {
   // Animal has been deleted again
 });
 ```
@@ -339,7 +362,7 @@ __Properties__
 * `db`(SDBDatabase) - database the index belongs to
 * `store`(SDBStore) - store the index belongs to
 
-### SDBIndex#get
+### SDBIndex#get(...values)
 Get a record from a store by the value of a key path. If the index is accessed
 outside of a transaction a transaction will implicitly be acquired.
 
@@ -357,7 +380,7 @@ be returned.
 __Example__
 
 ```javascript
-db.products.byLocation.get('south', 'north').then(function(products) {
+db.products.byLocation.get('south', 'north').then((products) => {
   // A producs whose location is either 'south' or 'north'
 });
 ```
@@ -373,15 +396,19 @@ And array of all records in the store.
 
 __Example__
 ```javascript
-db.products.byValue.getAll().then(function(records) {
+db.products.byValue.getAll().then((records) => {
   // All records sorted with the lowest value first
 });
 ```
 
-### SDBIndex#inRange
+### SDBIndex#inRange(...ranges)
 
 __Arguments__
 * `range` (...object) - a range to query for
+
+The object accepts following keys:
+- `gt` or `gte`: Records that are "greater than" or "greater than and equal to" a passed argument will be returned
+- `lt` or `lte`: Records that are "less than" or "less than and equal to" a passed argument will be returned
 
 __Returns__
 A promise resolved with an array of all records that are contained in one
@@ -390,11 +417,11 @@ be returned.
 
 __Example__
 ```javascript
-db.product.byValue.inRange({gt: 100, lte: 200}).then(function(products) {
+db.product.byValue.inRange({gt: 100, lte: 200}).then((products) => {
   // All products where value is in the interval ]100;200]
 });
 
-db.product.byValue.inRange({lte: 100}).then(function(products) {
+db.product.byValue.inRange({lte: 100}).then((products) => {
   // All products where value is <= 100
 });
 ```
@@ -457,8 +484,8 @@ delegate off to a default handler.
 __Example__
 
 ```javascript
-server.handle.create(function(clientData, store, msg, respond, broadcast) {
-  var errorMsg = validateCreateMsg(msg);
+server.handle.create((clientData, store, msg, respond, broadcast) => {
+  const errorMsg = validateCreateMsg(msg);
   if (errorMsg) {
     respond(errorMsg);
   } else {
@@ -483,8 +510,8 @@ A new server.
 __Example__
 
 ```javascript
-MemoryPersistence.create().then(function(persistence) {
-  var server = new Server({
+MemoryPersistence.create().then((persistence) => {
+  const server = new Server({
     port: 3001,
     persistence: persistence
   });
