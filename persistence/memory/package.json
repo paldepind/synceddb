@@ -1,6 +1,6 @@
 {
   "name": "synceddb-persistence-memory",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Persistence module for SyncedDB using memory for storage",
   "main": "index.js",
   "directories": {
