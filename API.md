@@ -5,7 +5,30 @@ Table of contents
 =================
 
 - [Client API documentation](#client-api-documentation)
+  - [syncedDB.open(options)](#synceddbopenoptions)
+  - [SDBDatabase](#sdbdatabase)
+  - [SDBDatabase#transaction](#sdbdatabasetransaction)
+  - [SDBDatabase#read](#sdbdatabaseread)
+  - [SDBDatabase#write](#sdbdatabasewrite)
+  - [SDBDatabase#sync()](#sdbdatabasesync)
+  - [SDBDatabase#connect()](#sdbdatabaseconnect)
+  - [SDBDatabase#disconnect()](#sdbdatabasedisconnect)
+  - [SDBStore](#sdbstore)
+  - [SDBStore#get](#sdbstoreget)
+  - [SDBStore#put](#sdbstoreput)
+  - [SDBStore#delete](#sdbstoredelete)
+  - [SDBIndex](#sdbindex)
+  - [SDBIndex#get](#sdbindexget)
+  - [SDBIndex#getAll()](#sdbindexgetall)
+  - [SDBIndex#inRange](#sdbindexinrange)
+  - [Database declarations](#database-declarations)
+  - [Events](#events)
 - [Server API documentation](#server-api-documentation)
+  - [Server](#server)
+  - [Server.defaultHandlers](#serverdefaulthandlers)
+  - [new Server(options)](#new-serveroptions)
+  - [Server#resetHandlers()](#serverresethandlers)
+  - [Server#close()](#serverclose)
 
 Client API documentation
 ========================
