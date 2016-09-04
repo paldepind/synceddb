@@ -52,7 +52,7 @@ __Returns__
 __Example__
 
 ```javascript
-var db = syncedDB.open({
+syncedDB.open({
   name: 'mydb',
   version: 3,
   stores: {
@@ -68,12 +68,12 @@ var db = syncedDB.open({
     ],
   },
   migrations: {
-    2: function(IDBDatabase, event) { /* do stuff when upgraded to version 2*/ },
-    3: function(IDBDatabase, event) { /* do other stuff on upgrato to version 3 */ },
+    2: (IDBDatabase, event) => { /* do stuff when upgraded to version 2*/ },
+    3: (IDBDatabase, event) => { /* do other stuff on upgrato to version 3 */ },
   }
-}).then(function(db) {
+}).then((db) => {
   // Db was opened successfully.
-}).catch(function(err) {
+}).catch((err) => {
   // Opening db failed.
 });
 ```
@@ -125,9 +125,9 @@ error happens inside the transaction.
 __Example__
 
 ```
-db.transaction(['orders', 'employees'], 'read', function(orders, employees) {
+db.transaction(['orders', 'employees'], 'read', (orders, employees) => {
   // Do stuff in transaction.
-}).then(function() {
+}).then(() => {
   // Transaction finished successfully.
 });
 ```
@@ -151,7 +151,7 @@ error happens inside the transaction.
 __Example__
 
 ```
-db.connect().then(function() {
+db.connect().then(() => {
   db.
 });
 ```
@@ -175,7 +175,7 @@ error happens inside the transaction.
 __Example__
 
 ```
-db.connect().then(function() {
+db.connect().then(() => {
   db.
 });
 ```
@@ -198,7 +198,7 @@ been synchronized.
 __Example__
 
 ```javascript
-db.sync('books').then(function() {
+db.sync('books').then(() => {
   // The local books store is now up to date with the server.
 });
 ```
@@ -219,7 +219,7 @@ error happens while trying to connect.
 __Example__
 
 ```
-db.connect().then(function() {
+db.connect().then(() => {
   // Connection is established.
 });
 ```
@@ -238,7 +238,7 @@ Nothing
 __Example__
 
 ```
-db.connect().then(function() {
+db.connect().then(() => {
   // We are connected.
   db.disconnect();
   // Now disconnected.
@@ -284,15 +284,15 @@ be found.
 __Example__
 
 ```javascript
-db.products.get(36).then(function(product) {
+db.products.get(36).then((product) => {
   // Do something with the product with the primary key 36.
-}).reject(function(err) {
+}).reject((err) => {
   if (err.type === 'KeyNotFoundError') {
     // No record exists with the key 36.
   }
 });
 
-db.products.get(fooId, barId).then(function(foo, bar) {
+db.products.get(fooId, barId).then((foo, bar) => {
   // Do something with the product having the primary key 36.
 });
 ```
@@ -312,12 +312,12 @@ A promise resolved with an array of the keys of the passed records.
 __Example__
 
 ```javascript
-var rabbit = {
+const rabbit = {
   type: 'rabbit',
   name: 'Thumper',
   color: 'grey'
 };
-db.animals.put(rabbit).then(function(key) {
+db.animals.put(rabbit).then((key) => {
   // Record has been created
   assert.equal(rabbit.key, key);
 });
@@ -338,15 +338,15 @@ A promise resolved when all records has been successfully deleted.
 __Example__
 
 ```javascript
-db.employees.delete(12).then(function() {
+db.employees.delete(12).then(() => {
   // Employee with key 12 deleted
 });
 
-var newAnimal = {type: 'dog', age: 17, name: 'Sally'};
-db.animals.put(newAnimal).then(function(newKey) {
+const newAnimal = {type: 'dog', age: 17, name: 'Sally'};
+db.animals.put(newAnimal).then((newKey) => {
   // Animal has been created
   return db.animals.delete(newKey);
-}).then(function() {
+}).then(() => {
   // Animal has been deleted again
 });
 ```
@@ -380,7 +380,7 @@ be returned.
 __Example__
 
 ```javascript
-db.products.byLocation.get('south', 'north').then(function(products) {
+db.products.byLocation.get('south', 'north').then((products) => {
   // A producs whose location is either 'south' or 'north'
 });
 ```
@@ -396,7 +396,7 @@ And array of all records in the store.
 
 __Example__
 ```javascript
-db.products.byValue.getAll().then(function(records) {
+db.products.byValue.getAll().then((records) => {
   // All records sorted with the lowest value first
 });
 ```
@@ -417,11 +417,11 @@ be returned.
 
 __Example__
 ```javascript
-db.product.byValue.inRange({gt: 100, lte: 200}).then(function(products) {
+db.product.byValue.inRange({gt: 100, lte: 200}).then((products) => {
   // All products where value is in the interval ]100;200]
 });
 
-db.product.byValue.inRange({lte: 100}).then(function(products) {
+db.product.byValue.inRange({lte: 100}).then((products) => {
   // All products where value is <= 100
 });
 ```
@@ -484,8 +484,8 @@ delegate off to a default handler.
 __Example__
 
 ```javascript
-server.handle.create(function(clientData, store, msg, respond, broadcast) {
-  var errorMsg = validateCreateMsg(msg);
+server.handle.create((clientData, store, msg, respond, broadcast) => {
+  const errorMsg = validateCreateMsg(msg);
   if (errorMsg) {
     respond(errorMsg);
   } else {
@@ -510,8 +510,8 @@ A new server.
 __Example__
 
 ```javascript
-MemoryPersistence.create().then(function(persistence) {
-  var server = new Server({
+MemoryPersistence.create().then((persistence) => {
+  const server = new Server({
     port: 3001,
     persistence: persistence
   });
