@@ -7,20 +7,20 @@ Table of contents
 - [Client API documentation](#client-api-documentation)
   - [syncedDB.open(options)](#synceddbopenoptions)
   - [SDBDatabase](#sdbdatabase)
-  - [SDBDatabase#transaction](#sdbdatabasetransaction)
-  - [SDBDatabase#read](#sdbdatabaseread)
-  - [SDBDatabase#write](#sdbdatabasewrite)
-  - [SDBDatabase#sync()](#sdbdatabasesync)
+  - [SDBDatabase#transaction(storeNames, mode, callback)](#sdbdatabasetransaction)
+  - [SDBDatabase#read(storeName, callback)](#sdbdatabaseread)
+  - [SDBDatabase#write(storeName, callback)](#sdbdatabasewrite)
+  - [SDBDatabase#sync(...storeNames, options)](#sdbdatabasesync)
   - [SDBDatabase#connect()](#sdbdatabaseconnect)
   - [SDBDatabase#disconnect()](#sdbdatabasedisconnect)
   - [SDBStore](#sdbstore)
-  - [SDBStore#get](#sdbstoreget)
-  - [SDBStore#put](#sdbstoreput)
-  - [SDBStore#delete](#sdbstoredelete)
+  - [SDBStore#get(...keys)](#sdbstoreget)
+  - [SDBStore#put(...records)](#sdbstoreput)
+  - [SDBStore#delete(...keys)](#sdbstoredelete)
   - [SDBIndex](#sdbindex)
-  - [SDBIndex#get](#sdbindexget)
+  - [SDBIndex#get(...values)](#sdbindexget)
   - [SDBIndex#getAll()](#sdbindexgetall)
-  - [SDBIndex#inRange](#sdbindexinrange)
+  - [SDBIndex#inRange(...ranges)](#sdbindexinrange)
   - [Database declarations](#database-declarations)
   - [Events](#events)
 - [Server API documentation](#server-api-documentation)
@@ -105,7 +105,7 @@ __Events__
 | ---------------- | ----------- |
 | `sync-initiated` |             |
 
-### SDBDatabase#transaction
+### SDBDatabase#transaction(storeNames, mode, callback)
 Opens a transaction on the database in either readonly or readwrite mode and
 including the specified list of stores.
 
@@ -132,7 +132,7 @@ db.transaction(['orders', 'employees'], 'read', (orders, employees) => {
 });
 ```
 
-### SDBDatabase#read
+### SDBDatabase#read(storeName, callback)
 Opens a readonly transaction on the database and including the specified list
 of stores.
 
@@ -151,12 +151,12 @@ error happens inside the transaction.
 __Example__
 
 ```
-db.connect().then(() => {
-  db.
+db.read('orders', 'employees', (orders, employees) => {
+  // The local books store can be used with read transaction
 });
 ```
 
-### SDBDatabase#write
+### SDBDatabase#write(storeName, callback)
 Opens a readwrite transaction on the database and including the specified list
 of stores.
 
@@ -175,12 +175,12 @@ error happens inside the transaction.
 __Example__
 
 ```
-db.connect().then(() => {
-  db.
+db.write('orders', 'employees', (orders, employees) => {
+  // The local books store can be used with write transaction
 });
 ```
 
-### SDBDatabase#sync()
+### SDBDatabase#sync(...storeNames, options)
 Synchronize the local database with the remote. This fetches and applies all changes from the remote
 since the last synchronization. Afterwards it sends all local changes to the remote.
 
@@ -267,7 +267,7 @@ Name     | Description
 `delete` | A record has been deleted. Event handler is passed a change event
 `synced` | A record has been synced to the remote. Event handler is passed the key of the record and the record |
 
-### SDBStore#get
+### SDBStore#get(...keys)
 Get a record from a store by key. If the store is accessed outside of a transaction
 a transaction will implicitly be acquired.
 
@@ -297,7 +297,7 @@ db.products.get(fooId, barId).then((foo, bar) => {
 });
 ```
 
-### SDBStore#put
+### SDBStore#put(...records)
 Add or insert one or more records into a store. If the store is accessed
 outside of a transaction a transaction will implicitly be acquired.
 
@@ -323,7 +323,7 @@ db.animals.put(rabbit).then((key) => {
 });
 ```
 
-### SDBStore#delete
+### SDBStore#delete(...keys)
 Delete a record from a store by key or by a record with. If the store is
 accessed outside of a transaction a transaction will implicitly be acquired.
 
@@ -362,7 +362,7 @@ __Properties__
 * `db`(SDBDatabase) - database the index belongs to
 * `store`(SDBStore) - store the index belongs to
 
-### SDBIndex#get
+### SDBIndex#get(...values)
 Get a record from a store by the value of a key path. If the index is accessed
 outside of a transaction a transaction will implicitly be acquired.
 
@@ -401,7 +401,7 @@ db.products.byValue.getAll().then((records) => {
 });
 ```
 
-### SDBIndex#inRange
+### SDBIndex#inRange(...ranges)
 
 __Arguments__
 * `range` (...object) - a range to query for
