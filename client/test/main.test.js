@@ -1,7 +1,7 @@
 const sinon = require('sinon');
 const assert = require('assert');
 
-describe('SyncedDB', function() {
+describe('SyncedDB', () => {
   const stores = {
     animals: [
       ['byColor', 'color'],
@@ -14,29 +14,29 @@ describe('SyncedDB', function() {
       ['byStreet', 'street'],
     ],
   };
-  afterEach(function(done) {
+  afterEach(done => {
     const req = indexedDB.deleteDatabase('mydb');
-    req.onblocked = function() { };
-    req.onsuccess = function() { done(); };
+    req.onblocked = () => { };
+    req.onsuccess = () => { done(); };
   });
-  describe('Opening a database', function() {
+  describe('Opening a database', () => {
     let db;
-    beforeEach(function() {
-      db = syncedDB.open({name: 'mydb', version: 1, stores: stores});
+    beforeEach(() => {
+      db = syncedDB.open({name: 'mydb', version: 1, stores});
     });
-    it('return promise resolved with db and event', function(done) {
-      syncedDB.open({name:'mydb', version: 1, stores: []}).then(function(res) {
+    it('return promise resolved with db and event', done => {
+      syncedDB.open({name:'mydb', version: 1, stores: []}).then(res => {
         assert(res.db.db instanceof IDBDatabase);
         assert(res.e.type === 'success');
         done();
       });
     });
-    it('creates database with specified version', function(done) {
+    it('creates database with specified version', done => {
       const spy = sinon.spy();
-      syncedDB.open({name:'mydb', version: 1, stores: []}).then(function() {
+      syncedDB.open({name:'mydb', version: 1, stores: []}).then(() => {
         const req = indexedDB.open('mydb', 1);
         req.onupgradeneeded = spy;
-        req.onsuccess = function() {
+        req.onsuccess = () => {
           const db = req.result;
           assert(spy.notCalled);
           db.close();
@@ -44,10 +44,10 @@ describe('SyncedDB', function() {
         };
       });
     });
-    it('creates object stores', function(done) {
-      db.then(function() {
+    it('creates object stores', done => {
+      db.then(() => {
         const req = indexedDB.open('mydb', 1);
-        req.onsuccess = function() {
+        req.onsuccess = () => {
           const db = req.result;
           const stores = db.objectStoreNames;
           assert(stores.length === 4);
@@ -59,10 +59,10 @@ describe('SyncedDB', function() {
         };
       });
     });
-    it('handles object store parameters', function(done) {
-      db.then(function() {
+    it('handles object store parameters', done => {
+      db.then(() => {
         const req = indexedDB.open('mydb', 1);
-        req.onsuccess = function() {
+        req.onsuccess = () => {
           const db = req.result;
           const tx = db.transaction(['animals', 'houses', 'roads']);
           const animals = tx.objectStore('animals');
@@ -79,10 +79,10 @@ describe('SyncedDB', function() {
         };
       });
     });
-    it('creates indexes ', function(done) {
-      db.then(function() {
+    it('creates indexes ', done => {
+      db.then(() => {
         const req = indexedDB.open('mydb', 1);
-        req.onsuccess = function() {
+        req.onsuccess = () => {
           const db = req.result;
           const tx = db.transaction(['animals', 'roads']);
 
@@ -104,16 +104,16 @@ describe('SyncedDB', function() {
         };
       });
     });
-    it('handles migrations with added stores', function(done) {
-      db.then(function() {
+    it('handles migrations with added stores', done => {
+      db.then(() => {
         const stores2 = {animals: stores.animals, roads: stores.roads, houses: stores.houses};
         stores2.books = [['byAuthor', 'author']];
         return syncedDB.open({name: 'mydb', version: 2, stores: stores2});
-      }).then(function() {
+      }).then(() => {
         done();
       });
     });
-    it('handles migrations with added indexes', function(done) {
+    it('handles migrations with added indexes', done => {
       const stores2 = {
         animals: [
           ['byColor', 'color'],
@@ -128,15 +128,13 @@ describe('SyncedDB', function() {
           ['byStreet', 'street'],
         ]
       };
-      db.then(function() {
-        return syncedDB.open({name: 'mydb',
-                              version: 2,
-                              stores: stores2});
-      }).then(function() {
+      db.then(() => syncedDB.open({name: 'mydb',
+                            version: 2,
+                            stores: stores2})).then(() => {
         done();
       });
     });
-    it('calls migration hooks with db and e', function(done) {
+    it('calls migration hooks with db and e', done => {
       const m1 = sinon.spy();
       const m2 = sinon.spy();
       const m3 = sinon.spy();
@@ -146,28 +144,28 @@ describe('SyncedDB', function() {
         3: m3,
       };
       syncedDB.open({name: 'another', version: 1,
-                    stores: stores, migrations: migrations})
-      .then(function() {
+                    stores, migrations})
+      .then(() => {
         assert(m1.firstCall.args[0] instanceof IDBDatabase);
         assert(m1.firstCall.args[1].type === 'upgradeneeded');
         assert(m2.notCalled);
         assert(m3.notCalled);
         return syncedDB.open({name: 'another', version: 3,
-                              stores: stores, migrations: migrations});
-      }).then(function() {
+                              stores, migrations});
+      }).then(() => {
         assert(m2.calledOnce);
         assert(m3.calledOnce);
         assert(m3.firstCall.args[0] instanceof IDBDatabase);
         assert(m3.firstCall.args[1].type === 'upgradeneeded');
         const req = indexedDB.deleteDatabase('another');
-        req.onsuccess = function() { done(); };
+        req.onsuccess = () => { done(); };
       });
     });
   });
-  describe('Database', function() {
-    it('is exposes stores', function(done) {
-      const db = syncedDB.open({name: 'mydb', version: 1, stores: stores});
-      db.then(function(db) {
+  describe('Database', () => {
+    it('is exposes stores', done => {
+      const db = syncedDB.open({name: 'mydb', version: 1, stores});
+      db.then(db => {
         done();
       });
       assert(typeof db.animals === 'object');
@@ -179,182 +177,164 @@ describe('SyncedDB', function() {
       assert(typeof db.stores.houses === 'object');
     });
   });
-  describe('Transaction', function() {
+  describe('Transaction', () => {
     let db;
-    beforeEach(function() {
-      db = syncedDB.open({name: 'mydb', version: 1, stores: stores});
+    beforeEach(() => {
+      db = syncedDB.open({name: 'mydb', version: 1, stores});
     });
-    it('gives requested stores', function(done) {
-      db.read('roads', 'houses', function(roads, houses) {
+    it('gives requested stores', done => {
+      db.read('roads', 'houses', (roads, houses) => {
         assert(roads);
         assert(houses);
-      }).then(function() {
+      }).then(() => {
         done();
       });
     });
-    it('can put and get', function(done) {
+    it('can put and get', done => {
       const road = {length: 100, price: 1337};
       const house = {street: 'Somewhere', built: 1891};
-      db.write('roads', 'houses', function(roads, houses) {
+      db.write('roads', 'houses', (roads, houses) => {
         roads.put(road);
         houses.put(house);
-      }).then(function() {
-        return db.houses.get(house.key);
-      }).then(function(somewhere) {
+      }).then(() => db.houses.get(house.key)).then(somewhere => {
         assert.equal(somewhere.built, 1891);
         return db.roads.get(road.key);
-      }).then(function(road) {
+      }).then(road => {
         assert(road.length === 100);
         done();
       });
     });
-    it('can put several records at once', function(done) {
+    it('can put several records at once', done => {
       const road1 = {length: 100, price: 1337};
       const road2 = {length: 200, price: 2030};
-      db.write('roads', function(roads) {
+      db.write('roads', roads => {
         roads.put(road1, road2);
-      }).then(function() {
-        return db.roads.get(road1.key);
-      }).then(function(r1) {
+      }).then(() => db.roads.get(road1.key)).then(r1 => {
         assert(r1.length === 100);
         return db.roads.get(road2.key);
-      }).then(function(r2) {
+      }).then(r2 => {
         assert(r2.length === 200);
         done();
       });
     });
-    it('throws if putting with invalid key', function(done) {
-      const road = {length: 100, price: 1337, key: function() {}};
-      db.write('roads', function(roads, houses) {
+    it('throws if putting with invalid key', done => {
+      const road = {length: 100, price: 1337, key() {}};
+      db.write('roads', (roads, houses) => {
         roads.put(road);
-      }).catch(function(err) {
+      }).catch(err => {
         assert(err instanceof TypeError);
         done();
       });
     });
-    it('can get several records at once', function(done) {
+    it('can get several records at once', done => {
       let foundRoads;
-      db.write('roads', function(roads) {
+      db.write('roads', roads => {
         const road1 = {length: 100, price: 1337};
         const road2 = {length: 200, price: 2030};
-        roads.put(road1, road2).then(function() {
-          roads.get(road1.key, road2.key).then(function(found) {
+        roads.put(road1, road2).then(() => {
+          roads.get(road1.key, road2.key).then(found => {
             foundRoads = found;
           });
         });
-      }).then(function() {
+      }).then(() => {
         assert(foundRoads[0].length === 100);
         assert(foundRoads[1].length === 200);
         done();
       });
     });
-    it('support promise chaining with simple values', function(done) {
+    it('support promise chaining with simple values', done => {
       let key;
       const road = {length: 100, price: 1337};
-      db.write('roads', function(roads) {
+      db.write('roads', roads => {
         roads.put(road)
-        .then(function() {
-          return road;
-        }).then(function(road) {
+        .then(() => road).then(road => {
           key = road.key;
         });
-      }).then(function() {
+      }).then(() => {
         assert(key);
         done();
       });
     });
-    it('is possible to put and then get in promise chain', function(done) {
+    it('is possible to put and then get in promise chain', done => {
       const road = {length: 100, price: 1337};
-      db.transaction('roads', 'rw', function(roads) {
+      db.transaction('roads', 'rw', roads => {
         roads.put(road)
-        .then(function() {
-          return roads.get(road.key);
-        }).then(function(road) {
+        .then(() => roads.get(road.key)).then(road => {
           assert(road.price === 1337);
           done();
         });
       });
     });
-    it('is possible to get and then put', function(done) {
+    it('is possible to get and then put', done => {
       const road = {length: 100, price: 1337};
-      db.roads.put(road).then(function() {
-        db.transaction('roads', 'rw', function(roads) {
-          roads.get(road.key).then(function(r) {
+      db.roads.put(road).then(() => {
+        db.transaction('roads', 'rw', roads => {
+          roads.get(road.key).then(r => {
             r.length = 110;
             roads.put(r);
           });
-        }).then(function() {
-          return db.roads.get(road.key);
-        }).then(function(r) {
+        }).then(() => db.roads.get(road.key)).then(r => {
           assert.equal(r.length, 110);
           done();
         });
       });
     });
-    describe('Indexes', function() {
-      it('can get records by indexes', function(done) {
+    describe('Indexes', () => {
+      it('can get records by indexes', done => {
         let road = {length: 100, price: 1337};
         db.roads.put(road)
-        .then(function() {
-          return db.transaction('roads', 'r', function(roads) {
-            roads.byLength.get(100)
-            .then(function(roads) {
-              road = roads[0];
-            });
-          }).then(function() {
-            assert.equal(road.price, 1337);
-            done();
+        .then(() => db.transaction('roads', 'r', roads => {
+          roads.byLength.get(100)
+          .then(roads => {
+            road = roads[0];
           });
-        });
+        }).then(() => {
+          assert.equal(road.price, 1337);
+          done();
+        }));
       });
-      it('can get by indexes and continue in transaction', function(done) {
+      it('can get by indexes and continue in transaction', done => {
         let road1, road2;
         const road = {length: 100, price: 1337};
         db.roads.put(road)
-        .then(function() {
-          return db.transaction('roads', 'r', function(roads) {
-            roads.byLength.get(100)
-            .then(function(foundRoads) {
-              road1 = foundRoads[0];
-              roads.get(road1.key).then(function(r) {
-                road2 = r;
-              });
+        .then(() => db.transaction('roads', 'r', roads => {
+          roads.byLength.get(100)
+          .then(foundRoads => {
+            road1 = foundRoads[0];
+            roads.get(road1.key).then(r => {
+              road2 = r;
             });
-          }).then(function() {
-            assert.equal(road1.price, 1337);
-            assert.equal(road2.price, 1337);
-            done();
           });
-        });
+        }).then(() => {
+          assert.equal(road1.price, 1337);
+          assert.equal(road2.price, 1337);
+          done();
+        }));
       });
-      it('can get records by index in a specified range', function(done) {
+      it('can get records by index in a specified range', done => {
         let foundHouses;
         db.houses.put({street: 'Somewhere 1'},
                       {street: 'Somewhere 2'},
                       {street: 'Somewhere 3'},
                       {street: 'Somewhere 4'}
-        ).then(function() {
-          return db.transaction('houses', 'r', function(houses) {
-            return houses.byStreet.inRange({gt: 'Somewhere 2', lte: 'Somewhere 4'})
-              .then(function(houses) { foundHouses = houses; });
-          });
-        }).then(function() {
+        ).then(() => db.transaction('houses', 'r', houses => houses.byStreet.inRange({gt: 'Somewhere 2', lte: 'Somewhere 4'})
+          .then(houses => { foundHouses = houses; }))).then(() => {
           assert(foundHouses.length === 2);
           done();
         });
       });
     });
   });
-  describe('Store', function() {
+  describe('Store', () => {
     let db;
-    beforeEach(function() {
-      db = syncedDB.open({name: 'mydb', version: 1, stores: stores});
+    beforeEach(() => {
+      db = syncedDB.open({name: 'mydb', version: 1, stores});
     });
-    it('can get records by key', function(done) {
+    it('can get records by key', done => {
       let IDBDb;
-      db.then(function(db) {
+      db.then(db => {
         const req = indexedDB.open('mydb', 1);
-        req.onsuccess = function() {
+        req.onsuccess = () => {
           IDBDb = req.result;
           const tx = IDBDb.transaction('roads', 'readwrite');
           const roads = tx.objectStore('roads');
@@ -363,25 +343,25 @@ describe('SyncedDB', function() {
         };
       });
       function postAdd() {
-        db.roads.get('road1').then(function(road1) {
+        db.roads.get('road1').then(road1 => {
           assert(road1.length === 10);
           IDBDb.close();
           done();
         });
       }
     });
-    it('rejects when key not found', function(done) {
+    it('rejects when key not found', done => {
       db.roads.get('someKey')
-      .catch(function(err) {
+      .catch(err => {
         assert.equal(err.type, 'KeyNotFoundError');
         done();
       });
     });
-    it('can get several records by key', function(done) {
+    it('can get several records by key', done => {
       let IDBDb;
-      db.then(function(db) {
+      db.then(db => {
         const req = indexedDB.open('mydb', 1);
-        req.onsuccess = function() {
+        req.onsuccess = () => {
           IDBDb = req.result;
           const tx = IDBDb.transaction('roads', 'readwrite');
           const roads = tx.objectStore('roads');
@@ -391,7 +371,7 @@ describe('SyncedDB', function() {
         };
       });
       function postAdd() {
-        db.roads.get('road1', 'road2').then(function(roads) {
+        db.roads.get('road1', 'road2').then(roads => {
           assert(roads[0].length === 10);
           assert(roads[1].length === 20);
           IDBDb.close();
@@ -399,16 +379,14 @@ describe('SyncedDB', function() {
         });
       }
     });
-    it('can put record with key', function(done) {
+    it('can put record with key', done => {
       const house = {street: 'Somewhere 8', built: 1993};
-      db.houses.put(house).then(function() {
-        return db.houses.get(house.key);
-      }).then(function(house) {
+      db.houses.put(house).then(() => db.houses.get(house.key)).then(house => {
         assert(house.built === 1993);
         done();
       });
     });
-    it('puts several already saved records in series', function(done) {
+    it('puts several already saved records in series', done => {
       let got = 0;
       function doneWhen() {
         got++;
@@ -416,154 +394,141 @@ describe('SyncedDB', function() {
       }
       const house1 = {street: 'Somewhere 7', built: 1993};
       const house2 = {street: 'Somewhere 8', built: 1995};
+<<<<<<< 3d8f46fbeaa6abee9dce4b6f64e7f7e9b384ebb4
       db.houses.put(house1, house2).then(function() {
+=======
+      db.houses.put(house1, house2).then(() => {
+        console.log('put em');
+>>>>>>> 2015ify test dir
         db.houses.put(house1).then(doneWhen);
         db.houses.put(house2).then(doneWhen);
       });
     });
-    it('synchronously adds key and sync status', function(done) {
+    it('synchronously adds key and sync status', done => {
       const house = {street: 'Somewhere 8', built: 1993};
       let syncKey;
-      db.houses.put(house).then(function(keys) {
+      db.houses.put(house).then(keys => {
         assert.equal(syncKey, keys[0]);
         return db.houses.get(house.key);
-      }).then(function(house) {
+      }).then(house => {
         assert(house.built === 1993);
         done();
       });
       syncKey = house.key;
       assert.equal(house.changedSinceSync, 1);
     });
-    it('can put several records at once', function(done) {
+    it('can put several records at once', done => {
       const houses = [{street: 'Somewhere 7', built: 1982},
                     {street: 'Somewhere 8', built: 1993},
                     {street: 'Somewhere 9', built: 2001}];
       db.houses.put(houses[0], houses[1], houses[2])
-      .then(function() {
-        return db.houses.get(houses[0].key);
-      }).then(function(house) {
+      .then(() => db.houses.get(houses[0].key)).then(house => {
         assert(house.built === 1982);
         return db.houses.get(houses[1].key);
-      }).then(function(house) {
+      }).then(house => {
         assert(house.built === 1993);
         return db.houses.get(houses[2].key);
-      }).then(function(house) {
+      }).then(house => {
         assert(house.built === 2001);
         done();
       });
     });
-    it('can delete record by key', function(done) {
+    it('can delete record by key', done => {
       let key;
-      db.houses.put({street: 'Somewhere 7', built: 1982}).then(function(insertKeys) {
+      db.houses.put({street: 'Somewhere 7', built: 1982}).then(insertKeys => {
         key = insertKeys[0];
         return db.houses.delete(key);
-      }).then(function(house) {
-        return db.houses.get(key);
-      }).catch(function(err) {
+      }).then(house => db.houses.get(key)).catch(err => {
         done();
       });
     });
-    it('can delete several records by key', function(done) {
+    it('can delete several records by key', done => {
       let keys;
       db.houses.put(
           {street: 'Somewhere 7', built: 1982},
           {street: 'Somewhere 8', built: 1985}
-      ).then(function(insertKeys) {
+      ).then(insertKeys => {
         keys = insertKeys;
         return db.houses.delete(insertKeys[0], insertKeys[1]);
-      }).then(function(house) {
-        return db.houses.get(keys[0]);
-      }).catch(function(err) {
-        return db.houses.get(keys[1]);
-      }).catch(function(err) {
+      }).then(house => db.houses.get(keys[0])).catch(err => db.houses.get(keys[1])).catch(err => {
         done();
       });
     });
-    describe('Index', function() {
+    describe('Index', () => {
       let db, put, animals;
-      beforeEach(function() {
-        db = syncedDB.open({name: 'mydb', version: 1, stores: stores});
+      beforeEach(() => {
+        db = syncedDB.open({name: 'mydb', version: 1, stores});
         animals = db.animals;
         put = animals.put({name: 'Thumper', race: 'rabbit', color: 'brown'},
                           {name: 'Fluffy', race: 'rabbit', color: 'white'},
                           {name: 'Bella', race: 'dog', color: 'white'});
       });
-      it('supports getting by unique index', function(done) {
-        put.then(function() {
-          return animals.byName.get('Thumper');
-        }).then(function(thumpers) {
+      it('supports getting by unique index', done => {
+        put.then(() => animals.byName.get('Thumper')).then(thumpers => {
           assert.equal(thumpers[0].race, 'rabbit');
           assert.equal(thumpers[0].color, 'brown');
           done();
         });
       });
-      it('can get multiple records', function(done) {
-        put.then(function() {
-          return animals.byColor.get('white');
-        }).then(function(animals) {
+      it('can get multiple records', done => {
+        put.then(() => animals.byColor.get('white')).then(animals => {
           assert(animals[0].name == 'Bella' ? animals[1].name == 'Fluffy'
                                             : animals[1].name == 'Bella');
           done();
         });
       });
-      it('can get all records', function(done) {
+      it('can get all records', done => {
         db.houses.put({street: 'Somewhere 7', built: 1982},
                       {street: 'Somewhere 8', built: 1993},
                       {street: 'Somewhere 9', built: 2001})
-        .then(function(putKeys) {
-          return db.houses.byStreet.getAll();
-        }).then(function(allHouses) {
+        .then(putKeys => db.houses.byStreet.getAll()).then(allHouses => {
           assert.equal(allHouses.length, 3);
           done();
         });
       });
-      it('returns an array if store isnt unique', function(done) {
-        put.then(function() {
-          return animals.byColor.get('brown');
-        }).then(function(brownAnimals) {
+      it('returns an array if store isnt unique', done => {
+        put.then(() => animals.byColor.get('brown')).then(brownAnimals => {
           assert(brownAnimals.length === 1);
           done();
         });
       });
     });
   });
-  describe('Events', function() {
+  describe('Events', () => {
     let db;
-    beforeEach(function() {
-      db = syncedDB.open({name: 'mydb', version: 1, stores: stores});
+    beforeEach(() => {
+      db = syncedDB.open({name: 'mydb', version: 1, stores});
     });
-    it('emits add event when creating record', function(done) {
-      db.roads.on('add', function(e) {
+    it('emits add event when creating record', done => {
+      db.roads.on('add', e => {
         done();
       });
       db.roads.put({length: 100, price: 1337});
     });
-    it('emits update event when modifying record', function(done) {
+    it('emits update event when modifying record', done => {
       const spy1 = sinon.spy();
       const spy2 = sinon.spy();
       db.roads.on('add', spy1);
       db.roads.on('update', spy2);
       const road = {length: 100, price: 1337};
       db.roads.put(road)
-      .then(function() {
-        return db.roads.put(road);
-      }).then(function() {
+      .then(() => db.roads.put(road)).then(() => {
         assert(spy1.calledOnce);
         assert(spy2.calledOnce);
         done();
       });
     });
-    it('emits event when creating object inside transactions', function(done) {
-      db.write('roads', function(roads) {
+    it('emits event when creating object inside transactions', done => {
+      db.write('roads', roads => {
         roads.put({length: 100, price: 1337});
       });
-      db.roads.on('add', function(addedId) {
+      db.roads.on('add', addedId => {
         done();
       });
     });
-    it('add event contains the added record', function(done) {
+    it('add event contains the added record', done => {
       const record = {length: 100, price: 1337};
-      db.roads.on('add', function(e) {
+      db.roads.on('add', e => {
         assert.equal(record.length, e.record.length);
         assert.equal(record.price, e.record.price);
         done();
@@ -571,42 +536,42 @@ describe('SyncedDB', function() {
       db.roads.put(record);
     });
   });
-  describe('Syncing', function() {
+  describe('Syncing', () => {
     let db, timestamp;
     const globalWebSocket = window.WebSocket;
     let ws, sendSpy;
-    let onSend = function() {};
-    beforeEach(function() {
-      onSend = function() {};
+    let onSend = () => {};
+    beforeEach(() => {
+      onSend = () => {};
       timestamp = 0;
       sendSpy = sinon.spy();
-      window.WebSocket = function(url, protocol) {
+      window.WebSocket = (url, protocol) => {
         ws = {
-          close: function() {},
-          send: function() {
-            sendSpy.apply(null, arguments);
-            onSend.apply(null, arguments);
+          close() {},
+          send() {
+            sendSpy(...arguments);
+            onSend(...arguments);
           }
         };
-        setTimeout(function() {
+        setTimeout(() => {
           ws.onopen();
         }, 0);
         return ws;
       };
-      db = syncedDB.open({name: 'mydb', version: 1, stores: stores});
+      db = syncedDB.open({name: 'mydb', version: 1, stores});
     });
-    afterEach(function() {
+    afterEach(() => {
       window.WebSocket = globalWebSocket;
     });
-    it('stores meta data when creating new record', function(done) {
-      db.roads.on('add', function(e) {
+    it('stores meta data when creating new record', done => {
+      db.roads.on('add', e => {
         assert(e.record.changedSinceSync === 1);
         done();
       });
       db.roads.put({length: 100, price: 1337});
     });
-    it('can\'t begin sync when already syncing', function(done) {
-      onSend = function(msg) {
+    it('can\'t begin sync when already syncing', done => {
+      onSend = msg => {
         const data = JSON.parse(msg);
         assert.equal(data.type, 'get-changes');
         assert.deepEqual(data.storeName, 'roads');
@@ -615,26 +580,24 @@ describe('SyncedDB', function() {
           nrOfRecordsToSync: 0
         })});
       };
-      db.sync(['roads']).then(function() {
+      db.sync(['roads']).then(() => {
         done();
       });
-      db.sync(['roads']).catch(function(err) {
+      db.sync(['roads']).catch(err => {
         assert.equal(err.type, 'AlreadySyncing');
       });
     });
-    it('finds newly added records', function(done) {
+    it('finds newly added records', done => {
       db.roads.put({length: 100, price: 1337})
-      .then(function() {
-        return db.roads.changedSinceSync.get(1);
-      }).then(function(changedRoads) {
+      .then(() => db.roads.changedSinceSync.get(1)).then(changedRoads => {
         assert(changedRoads.length === 1);
         done();
       });
     });
-    describe('to server', function() {
-      it('sends added record', function(done) {
+    describe('to server', () => {
+      it('sends added record', done => {
         const road = {length: 100, price: 1337};
-        onSend = function(msg) {
+        onSend = msg => {
           const sent = JSON.parse(msg);
           ws.onmessage({data: JSON.stringify({
             type: 'ok',
@@ -645,9 +608,7 @@ describe('SyncedDB', function() {
           })});
         };
         db.roads.put(road)
-        .then(function(roadId) {
-          return db.pushToRemote();
-        }).then(function() {
+        .then(roadId => db.pushToRemote()).then(() => {
           const sent = JSON.parse(sendSpy.getCall(0).args[0]);
           assert.deepEqual(sent.record, {
             length: 100, price: 1337
@@ -655,10 +616,10 @@ describe('SyncedDB', function() {
           done();
         });
       });
-      it('only sends records from specified store', function(done) {
+      it('only sends records from specified store', done => {
         const road = {length: 100, price: 1337};
         const house = {street: 'Somewhere Street 1'};
-        onSend = function(msg) {
+        onSend = msg => {
           const sent = JSON.parse(msg);
           ws.onmessage({data: JSON.stringify({
             type: 'ok',
@@ -669,12 +630,8 @@ describe('SyncedDB', function() {
           })});
         };
         db.roads.put(road)
-        .then(function() {
-          return db.houses.put(house);
-        }).then(function(roadId) {
-          return db.pushToRemote('roads');
-        })
-        .then(function() {
+        .then(() => db.houses.put(house)).then(roadId => db.pushToRemote('roads'))
+        .then(() => {
           const sent = JSON.parse(sendSpy.getCall(0).args[0]);
           assert.deepEqual(sent.record, {
             length: 100, price: 1337
@@ -683,9 +640,9 @@ describe('SyncedDB', function() {
           done();
         });
       });
-      it('synchronized records are marked as unchanged', function(done) {
+      it('synchronized records are marked as unchanged', done => {
         const road = {length: 100, price: 1337};
-        onSend = function(msg) {
+        onSend = msg => {
           const sent = JSON.parse(msg);
           ws.onmessage({data: JSON.stringify({
             type: 'ok',
@@ -696,21 +653,19 @@ describe('SyncedDB', function() {
           })});
         };
         db.roads.put(road)
-        .then(function(roadId) {
+        .then(roadId => {
           assert(road.changedSinceSync === 1);
           return db.pushToRemote();
         })
-        .then(function() {
-          return db.roads.get(road.key);
-        }).then(function(road) {
+        .then(() => db.roads.get(road.key)).then(road => {
           assert(road.changedSinceSync === 0);
           done();
         });
       });
-      it('emits event when records are synced', function(done) {
+      it('emits event when records are synced', done => {
         const road = {length: 100, price: 1337};
         const spy = sinon.spy();
-        onSend = function(msg) {
+        onSend = msg => {
           const sent = JSON.parse(msg);
           assert(spy.notCalled);
           ws.onmessage({data: JSON.stringify({
@@ -722,17 +677,15 @@ describe('SyncedDB', function() {
           })});
         };
         db.roads.on('synced', spy);
-        db.roads.put(road).then(function(roadId) {
-          return db.pushToRemote();
-        }).then(function() {
+        db.roads.put(road).then(roadId => db.pushToRemote()).then(() => {
           assert(spy.calledOnce);
           assert.equal(spy.firstCall.args[1].price, 1337);
           done();
         });
       });
-      it('sends updated records', function(done) {
+      it('sends updated records', done => {
         const road = {length: 100, price: 1337};
-        onSend = function(raw) {
+        onSend = raw => {
           const msg = JSON.parse(raw);
           ws.onmessage({data: JSON.stringify({
             type: 'ok',
@@ -743,23 +696,19 @@ describe('SyncedDB', function() {
           })});
         };
         db.roads.put(road)
-        .then(function(key) {
-          return db.pushToRemote();
-        }).then(function() {
+        .then(key => db.pushToRemote()).then(() => {
           road.length = 110;
           return db.roads.put(road);
-        }).then(function() {
-          return db.pushToRemote();
-        }).then(function() {
+        }).then(() => db.pushToRemote()).then(() => {
           const secondSend = JSON.parse(sendSpy.getCall(1).args[0]);
           assert.equal(secondSend.type, 'update');
           assert.equal(secondSend.diff.m[2], 110);
           done();
         });
       });
-      it('sends deleted records', function(done) {
+      it('sends deleted records', done => {
         const road = {length: 100, price: 1337};
-        onSend = function(raw) {
+        onSend = raw => {
           const msg = JSON.parse(raw);
           ws.onmessage({data: JSON.stringify({
             type: 'ok',
@@ -770,22 +719,18 @@ describe('SyncedDB', function() {
           })});
         };
         db.roads.put(road)
-        .then(function(key) {
-          return db.pushToRemote();
-        }).then(function() {
+        .then(key => db.pushToRemote()).then(() => {
           road.length = 110;
           return db.roads.delete(road);
-        }).then(function() {
-          return db.pushToRemote();
-        }).then(function() {
+        }).then(() => db.pushToRemote()).then(() => {
           const secondSend = JSON.parse(sendSpy.getCall(1).args[0]);
           assert.equal(secondSend.type, 'delete');
           done();
         });
       });
-      it('doesn\'t find synced and deleted records', function(done) {
+      it('doesn\'t find synced and deleted records', done => {
         const road = {length: 100, price: 1337};
-        onSend = function(raw) {
+        onSend = raw => {
           const msg = JSON.parse(raw);
           ws.onmessage({data: JSON.stringify({
             type: 'ok',
@@ -795,21 +740,13 @@ describe('SyncedDB', function() {
             newVersion: (msg.version + 1) || 0,
           })});
         };
-        db.roads.put(road).then(function(key) {
-          return db.pushToRemote();
-        }).then(function() {
-          return db.roads.delete(road);
-        }).then(function(r) {
-          return db.roads.get(road.key);
-        }).catch(function(el) {
-          return db.pushToRemote();
-        }).then(function(r) {
+        db.roads.put(road).then(key => db.pushToRemote()).then(() => db.roads.delete(road)).then(r => db.roads.get(road.key)).catch(el => db.pushToRemote()).then(r => {
           done();
         });
       });
-      it('handles new key from remote', function(done) {
+      it('handles new key from remote', done => {
         let firstKey, newKey, road = {length: 100, price: 1337};
-        onSend = function(msg) {
+        onSend = msg => {
           const sent = JSON.parse(msg);
           ws.onmessage({data: JSON.stringify({
             type: 'ok',
@@ -820,24 +757,22 @@ describe('SyncedDB', function() {
             newVersion: 0,
           })});
         };
-        db.roads.on('synced', function(key, record) {
+        db.roads.on('synced', (key, record) => {
           assert.equal(key, firstKey);
           assert.notEqual(key, record.key);
           newKey = record.key;
         });
-        db.roads.put(road).then(function(roadKey) {
+        db.roads.put(road).then(roadKey => {
           firstKey = roadKey;
           return db.pushToRemote();
-        }).then(function() {
-          return db.roads.get(newKey);
-        }).then(function(road) {
+        }).then(() => db.roads.get(newKey)).then(road => {
           assert.equal(road.length, 100);
           done();
         });
       });
-      it('updates syncedTo on `ok` message', function(done) {
+      it('updates syncedTo on `ok` message', done => {
         let secondMsg, road = {length: 100, price: 1337};
-        onSend = function(msg) {
+        onSend = msg => {
           const sent = JSON.parse(msg);
           if (sent.type === 'create') {
             ws.onmessage({data: JSON.stringify({
@@ -855,46 +790,42 @@ describe('SyncedDB', function() {
             })});
           }
         };
-        db.roads.put(road).then(function(roadId) {
-          return db.pushToRemote();
-        }).then(function() {
-          return db.pullFromRemote('roads');
-        }).then(function() {
+        db.roads.put(road).then(roadId => db.pushToRemote()).then(() => db.pullFromRemote('roads')).then(() => {
           assert.equal(secondMsg.since, 8);
           done();
         });
       });
-      it('can send custom messages to the remote', function(done) {
-        onSend = function(msg) {
+      it('can send custom messages to the remote', done => {
+        onSend = msg => {
           const sent = JSON.parse(msg);
           assert.deepEqual(sent, {
             type: 'customType', data: 'something'
           });
           done();
         };
-        db.connect().then(function() {
+        db.connect().then(() => {
           db.send({type: 'customType', data: 'something'});
         });
       });
-      it('can receive custom messages from the remote after connect', function(done) {
-        db.messages.on('custom-msg', function(msg) {
+      it('can receive custom messages from the remote after connect', done => {
+        db.messages.on('custom-msg', msg => {
           assert.equal(msg.data, 'foobar');
           done();
         });
-        db.connect().then(function() {
+        db.connect().then(() => {
           ws.onmessage({data: JSON.stringify({
             type: 'custom-msg',
             data: 'foobar'
           })});
         });
       });
-      it('record is not marked sync if changed before server ok', function(done) {
+      it('record is not marked sync if changed before server ok', done => {
         const road = {length: 100, price: 1337};
-        onSend = function(msg) {
+        onSend = msg => {
           const sent = JSON.parse(msg);
           if (sent.type === 'create') {
             road.length = 110;
-            db.roads.put(road).then(function() {
+            db.roads.put(road).then(() => {
               ws.onmessage({data: JSON.stringify({
                 type: 'ok',
                 storeName: 'roads',
@@ -913,11 +844,7 @@ describe('SyncedDB', function() {
             })});
           }
         };
-        db.roads.put(road).then(function(roadId) {
-          return db.pushToRemote();
-        }).then(function() {
-          return db.pushToRemote();
-        }).then(function() {
+        db.roads.put(road).then(roadId => db.pushToRemote()).then(() => db.pushToRemote()).then(() => {
           assert.equal(sendSpy.callCount, 2);
           const sent1 = JSON.parse(sendSpy.getCall(0).args[0]);
           const sent2 = JSON.parse(sendSpy.getCall(1).args[0]);
@@ -929,9 +856,9 @@ describe('SyncedDB', function() {
         });
       });
     });
-    describe('from server', function() {
-      it('finishes sync if nr of records to sync is zero', function(done) {
-        onSend = function(msg) {
+    describe('from server', () => {
+      it('finishes sync if nr of records to sync is zero', done => {
+        onSend = msg => {
           const data = JSON.parse(msg);
           assert.equal(data.type, 'get-changes');
           assert.deepEqual(data.storeName, 'roads');
@@ -940,12 +867,12 @@ describe('SyncedDB', function() {
             nrOfRecordsToSync: 0
           })});
         };
-        db.sync(['roads']).then(function() {
+        db.sync(['roads']).then(() => {
           done();
         });
       });
-      it('handles created documents', function(done) {
-        onSend = function(msg) {
+      it('handles created documents', done => {
+        onSend = msg => {
           const data = JSON.parse(msg);
           assert.equal(data.type, 'get-changes');
           assert.deepEqual(data.storeName, 'roads');
@@ -962,17 +889,15 @@ describe('SyncedDB', function() {
             record: {length: 133, price: 1000},
           })});
         };
-        db.pullFromRemote('roads').then(function() {
-          return db.roads.byLength.get(133);
-        }).then(function(roads) {
+        db.pullFromRemote('roads').then(() => db.roads.byLength.get(133)).then(roads => {
           assert.equal(roads[0].price, 1000);
           assert.equal(roads[0].version, 0);
           done();
         });
       });
-      it('saves original remote version', function(done) {
+      it('saves original remote version', done => {
         let road;
-        onSend = function(msg) {
+        onSend = msg => {
           const data = JSON.parse(msg);
           assert.equal(data.type, 'get-changes');
           assert.deepEqual(data.storeName, 'roads');
@@ -989,22 +914,20 @@ describe('SyncedDB', function() {
           })});
         };
         db.pullFromRemote('roads')
-        .then(function() {
-          return db.roads.byLength.get(133);
-        }).then(function(roads) {
+        .then(() => db.roads.byLength.get(133)).then(roads => {
           road = roads[0];
           road.price = 1300;
           return db.roads.put(road);
-        }).then(function() {
+        }).then(() => {
           assert.equal(road.price, 1300);
           assert.equal(road.remoteOriginal.price, 1000);
           done();
         });
       });
-      it('handles updated documents', function(done) {
+      it('handles updated documents', done => {
         let roadKey;
         const road = {length: 100, price: 1337};
-        onSend = function(raw) {
+        onSend = raw => {
           const msg = JSON.parse(raw);
           if (msg.type === 'create') {
             ws.onmessage({data: JSON.stringify({
@@ -1029,24 +952,20 @@ describe('SyncedDB', function() {
             })});
           }
         };
-        db.roads.put(road).then(function() {
+        db.roads.put(road).then(() => {
           roadKey = road.key;
           return db.pushToRemote();
-        }).then(function() {
-          return db.pullFromRemote('roads');
-        }).then(function() {
-          return db.roads.get(roadKey);
-        }).then(function(road) {
+        }).then(() => db.pullFromRemote('roads')).then(() => db.roads.get(roadKey)).then(road => {
           assert.equal(road.version, 1);
           assert.equal(road.changedSinceSync, 0);
           assert.equal(road.length, 110);
           done();
         });
       });
-      it('handles deleted documents', function(done) {
+      it('handles deleted documents', done => {
         const road = {length: 100, price: 1337};
         let roadKey;
-        onSend = function(raw) {
+        onSend = raw => {
           const msg = JSON.parse(raw);
           if (msg.type === 'create') {
             ws.onmessage({data: JSON.stringify({
@@ -1070,23 +989,19 @@ describe('SyncedDB', function() {
             })});
           }
         };
-        db.roads.put(road).then(function(key) {
+        db.roads.put(road).then(key => {
           roadKey = road.key;
           return db.pushToRemote('roads');
-        }).then(function() {
-          return db.pullFromRemote('roads');
-        }).then(function() {
-          return db.roads.get(roadKey);
-        }).catch(function(err) {
+        }).then(() => db.pullFromRemote('roads')).then(() => db.roads.get(roadKey)).catch(err => {
           assert.equal(err.type, 'KeyNotFoundError');
           done();
         });
       });
-      it('emits conflict on update to changed record', function(done) {
+      it('emits conflict on update to changed record', done => {
         const road = {length: 100, price: 1337};
         const stub = sinon.stub().returnsArg(1);
         db.stores.roads.handleConflict = stub;
-        onSend = function(raw) {
+        onSend = raw => {
           const msg = JSON.parse(raw);
           if (msg.type === 'create') {
             ws.onmessage({data: JSON.stringify({
@@ -1118,14 +1033,10 @@ describe('SyncedDB', function() {
             })});
           }
         };
-        db.roads.put(road).then(function() {
-          return db.pushToRemote();
-        }).then(function() {
+        db.roads.put(road).then(() => db.pushToRemote()).then(() => {
           road.price = 2000;
           return db.roads.put(road);
-        }).then(function() {
-          return db.pullFromRemote('roads');
-        }).then(function() {
+        }).then(() => db.pullFromRemote('roads')).then(() => {
           assert(stub.calledOnce);
           const original = stub.getCall(0).args[0];
           assert.equal(original.length, 100);
@@ -1139,11 +1050,11 @@ describe('SyncedDB', function() {
           done();
         });
       });
-      it('emits conflict on update to locally deleted record', function(done) {
+      it('emits conflict on update to locally deleted record', done => {
         const road = {length: 100, price: 1337};
         const stub = sinon.stub().returnsArg(1);
         db.stores.roads.handleConflict = stub;
-        onSend = function(raw) {
+        onSend = raw => {
           const msg = JSON.parse(raw);
           if (msg.type === 'create') {
             ws.onmessage({data: JSON.stringify({
@@ -1169,13 +1080,7 @@ describe('SyncedDB', function() {
           }
         };
         db.roads.put(road)
-        .then(function() {
-          return db.pushToRemote();
-        }).then(function() {
-          return db.roads.delete(road);
-        }).then(function() {
-          return db.pullFromRemote('roads');
-        }).then(function() {
+        .then(() => db.pushToRemote()).then(() => db.roads.delete(road)).then(() => db.pullFromRemote('roads')).then(() => {
           assert(stub.calledOnce);
           const original = stub.getCall(0).args[0];
           assert.equal(original.length, 100);
@@ -1188,11 +1093,11 @@ describe('SyncedDB', function() {
           done();
         });
       });
-      it('emits conflict on remote delete to locally modified record', function(done) {
+      it('emits conflict on remote delete to locally modified record', done => {
         const road = {length: 100, price: 1337};
         const stub = sinon.stub().returnsArg(1);
         db.stores.roads.handleConflict = stub;
-        onSend = function(raw) {
+        onSend = raw => {
           const msg = JSON.parse(raw);
           if (msg.type === 'create') {
             ws.onmessage({data: JSON.stringify({
@@ -1216,14 +1121,10 @@ describe('SyncedDB', function() {
             })});
           }
         };
-        db.roads.put(road).then(function() {
-          return db.pushToRemote();
-        }).then(function() {
+        db.roads.put(road).then(() => db.pushToRemote()).then(() => {
           road.length = 110;
           return db.roads.put(road);
-        }).then(function() {
-          return db.pullFromRemote('roads');
-        }).then(function() {
+        }).then(() => db.pullFromRemote('roads')).then(() => {
           assert(stub.calledOnce);
           const original = stub.getCall(0).args[0];
           assert.equal(original.length, 100);
@@ -1236,8 +1137,8 @@ describe('SyncedDB', function() {
           done();
         });
       });
-      it('requests changes since last sync', function(done) {
-        onSend = function(msg) {
+      it('requests changes since last sync', done => {
+        onSend = msg => {
           const data = JSON.parse(msg);
           if (data.since === null) {
             ws.onmessage({data: JSON.stringify({
@@ -1259,16 +1160,14 @@ describe('SyncedDB', function() {
             })});
           }
         };
-        db.pullFromRemote('roads').then(function() {
-          return db.pullFromRemote('roads');
-        }).then(function(road) {
+        db.pullFromRemote('roads').then(() => db.pullFromRemote('roads')).then(road => {
           assert(sendSpy.calledTwice);
           done();
         });
       });
-      it('emits events for created documents', function(done) {
+      it('emits events for created documents', done => {
         let key;
-        onSend = function(msg) {
+        onSend = msg => {
           const data = JSON.parse(msg);
           assert(data.type === 'get-changes');
           ws.onmessage({data: JSON.stringify({
@@ -1284,20 +1183,20 @@ describe('SyncedDB', function() {
             record: {length: 133, price: 1000}
           })});
         };
-        db.roads.on('add', function(e) {
+        db.roads.on('add', e => {
           key = e.record.key;
         });
-        db.pullFromRemote('roads').then(function() {
+        db.pullFromRemote('roads').then(() => {
           assert.equal(key, 'foo');
           done();
         });
       });
-      it('emits event when custom message is recieved', function(done) {
-        db.messages.on('myMsgType', function(msg) {
+      it('emits event when custom message is recieved', done => {
+        db.messages.on('myMsgType', msg => {
           assert.deepEqual(msg, {type: 'myMsgType', data: 'stuff'});
           done();
         });
-        onSend = function(msg) {
+        onSend = msg => {
           const data = JSON.parse(msg);
           assert(data.type === 'get-changes');
           ws.onmessage({data: JSON.stringify({
@@ -1307,8 +1206,8 @@ describe('SyncedDB', function() {
         };
         db.pullFromRemote('animals');
       });
-      it('emits event on store when custom message with store name is recieved', function(done) {
-        db.animals.messages.on('myMsgType', function(msg) {
+      it('emits event on store when custom message with store name is recieved', done => {
+        db.animals.messages.on('myMsgType', msg => {
           assert.deepEqual(msg, {
             type: 'myMsgType',
             storeName: 'animals',
@@ -1316,7 +1215,7 @@ describe('SyncedDB', function() {
           });
           done();
         });
-        onSend = function(msg) {
+        onSend = msg => {
           const data = JSON.parse(msg);
           assert(data.type === 'get-changes');
           ws.onmessage({data: JSON.stringify({
@@ -1327,9 +1226,9 @@ describe('SyncedDB', function() {
         };
         db.pullFromRemote('animals');
       });
-      it('emits event when sync is started', function(done) {
+      it('emits event when sync is started', done => {
         const spy = sinon.spy();
-        onSend = function(msg) {
+        onSend = msg => {
           const data = JSON.parse(msg);
           assert(data.type === 'get-changes');
           ws.onmessage({data: JSON.stringify({
@@ -1346,17 +1245,17 @@ describe('SyncedDB', function() {
           })});
         };
         db.on('sync-initiated', spy);
-        db.pullFromRemote('roads').then(function() {
+        db.pullFromRemote('roads').then(() => {
           assert(spy.calledOnce);
           assert.equal(spy.firstCall.args[0].nrOfRecordsToSync, 1);
           done();
         });
       });
-      it('calls handle on reject message and skips record', function(done) {
+      it('calls handle on reject message and skips record', done => {
         const road = {length: 100, price: 1337};
         const spy = sinon.stub().returns(false);
         db.roads.handleReject = spy;
-        onSend = function(msg) {
+        onSend = msg => {
           const data = JSON.parse(msg);
           assert(data.type === 'create');
           if (data.record.length === 100) {
@@ -1371,26 +1270,22 @@ describe('SyncedDB', function() {
             })});
           }
         };
-        db.roads.put(road).then(function() {
-          return db.pushToRemote('roads');
-        }).then(function() {
+        db.roads.put(road).then(() => db.pushToRemote('roads')).then(() => {
           road.length = 110;
           return db.roads.put(road);
-        }).then(function() {
-          return db.pushToRemote('roads');
-        }).then(function() {
+        }).then(() => db.pushToRemote('roads')).then(() => {
           assert(spy.calledOnce);
           assert.equal(spy.getCall(0).args[0].length, 100);
           assert.equal(spy.getCall(0).args[1].storeName, 'roads');
           done();
         });
       });
-      it('calls handle on reject message and resends record', function(done) {
+      it('calls handle on reject message and resends record', done => {
         const road = {length: 100, price: 1337};
         const spy = sinon.stub().returnsArg(0);
         db.roads.handleReject = spy;
         let msgCount = 0;
-        onSend = function(msg) {
+        onSend = msg => {
           msgCount++;
           const data = JSON.parse(msg);
           assert(data.type === 'create');
@@ -1406,9 +1301,7 @@ describe('SyncedDB', function() {
             })});
           }
         };
-        db.roads.put(road).then(function() {
-          return db.pushToRemote('roads');
-        }).then(function() {
+        db.roads.put(road).then(() => db.pushToRemote('roads')).then(() => {
           assert(spy.calledOnce);
           assert.equal(spy.getCall(0).args[0].length, 100);
           assert.equal(spy.getCall(0).args[1].storeName, 'roads');
@@ -1416,9 +1309,9 @@ describe('SyncedDB', function() {
         });
       });
     });
-    describe('continuous sync', function() {
-      it('sends added records when syncing', function(done) {
-        onSend = function(msg) {
+    describe('continuous sync', () => {
+      it('sends added records when syncing', done => {
+        onSend = msg => {
           const data = JSON.parse(msg);
           if (data.type === 'get-changes') {
             ws.onmessage({data: JSON.stringify({
@@ -1434,8 +1327,8 @@ describe('SyncedDB', function() {
             })});
           }
         };
-        db.sync(['animals'], {continuously: true}).then(function() {
-          db.animals.put({color: 'grey', name: 'Mister'}).then(function() {
+        db.sync(['animals'], {continuously: true}).then(() => {
+          db.animals.put({color: 'grey', name: 'Mister'}).then(() => {
             const secondSend = JSON.parse(sendSpy.getCall(1).args[0]);
             assert.equal(secondSend.type, 'create');
             assert.equal(secondSend.record.color, 'grey');
@@ -1443,8 +1336,8 @@ describe('SyncedDB', function() {
           });
         });
       });
-      it('sends updated records when syncing', function(done) {
-        onSend = function(data) {
+      it('sends updated records when syncing', done => {
+        onSend = data => {
           const msg = JSON.parse(data);
           if (msg.type === 'get-changes') {
             ws.onmessage({data: JSON.stringify({
@@ -1461,12 +1354,12 @@ describe('SyncedDB', function() {
             })});
           }
         };
-        db.sync(['animals'], {continuously: true}).then(function() {
+        db.sync(['animals'], {continuously: true}).then(() => {
           const cat = {color: 'grey', name: 'Mister'};
-          db.animals.put(cat).then(function() {
+          db.animals.put(cat).then(() => {
             cat.color = 'white';
             return db.animals.put(cat);
-          }).then(function() {
+          }).then(() => {
             const secondSend = JSON.parse(sendSpy.getCall(1).args[0]);
             assert.equal(secondSend.type, 'create');
             assert.deepEqual(secondSend.record, {
@@ -1479,8 +1372,8 @@ describe('SyncedDB', function() {
           });
         });
       });
-      it('sends multiple updates continuously', function(done) {
-        onSend = function(data) {
+      it('sends multiple updates continuously', done => {
+        onSend = data => {
           const msg = JSON.parse(data);
           if (msg.type === 'get-changes') {
             ws.onmessage({data: JSON.stringify({
@@ -1497,15 +1390,15 @@ describe('SyncedDB', function() {
             })});
           }
         };
-        db.sync(['animals'], {continuously: true}).then(function() {
+        db.sync(['animals'], {continuously: true}).then(() => {
           const cat = {color: 'grey', name: 'Mister'};
-          db.animals.put(cat).then(function() {
+          db.animals.put(cat).then(() => {
             cat.color = 'white';
             return db.animals.put(cat);
-          }).then(function() {
+          }).then(() => {
             cat.color = 'grey';
             return db.animals.put(cat);
-          }).then(function() {
+          }).then(() => {
             const secondSend = JSON.parse(sendSpy.getCall(1).args[0]);
             assert.equal(secondSend.type, 'create');
             assert.equal(secondSend.record.color, 'grey');
@@ -1520,7 +1413,7 @@ describe('SyncedDB', function() {
       });
     });
   });
-  it('exposes diff and patch', function() {
+  it('exposes diff and patch', () => {
     const rabbit1 = {name: 'Thumper', age: 1, color: 'brown'};
     const rabbit2 = {name: 'Thumper', age: 3, color: 'grey'};
     const delta = syncedDB.diff(rabbit1, rabbit2);
