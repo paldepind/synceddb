@@ -1,4 +1,4 @@
-const {doInStoreTx, doIndexGet, createKeyRange} = require('./utils');
+const {doInStoreTx, doIndexGet, createQuery} = require('./utils');
 
 class SDBIndex {
   constructor(name, db, store) {
@@ -7,23 +7,23 @@ class SDBIndex {
     this.store = store;
   }
 
-  get(...ranges) {
-    ranges = ranges.map(IDBKeyRange.only);
+  get(...ids) {
+    const queries = ids.map((id) => ({range: IDBKeyRange.only(id)}));
     return doInStoreTx('readonly', this.store, (store, resolve, reject) => {
-      return doIndexGet(this.name, ranges, store.IDBStore, resolve, reject);
+      return doIndexGet(this.name, queries, store.IDBStore, resolve, reject);
     });
   }
 
   getAll() {
     return doInStoreTx('readonly', this.store, (store, resolve, reject) => {
-      return doIndexGet(this.name, [undefined], store.IDBStore, resolve, reject);
+      return doIndexGet(this.name, [{}], store.IDBStore, resolve, reject);
     });
   }
 
-  inRange(...ranges) {
-    ranges = ranges.map(createKeyRange);
+  inRange(...queries) {
+    queries = queries.map(createQuery);
     return doInStoreTx('readonly', this.store, (store, resolve, reject) => {
-      return doIndexGet(this.name, ranges, store.IDBStore, resolve, reject);
+      return doIndexGet(this.name, queries, store.IDBStore, resolve, reject);
     });
   }
 }

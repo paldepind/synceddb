@@ -41,21 +41,6 @@ function doInStoreTx(mode, store, cb) {
   }
 }
 
-function doIndexGet(idxName, ranges, IDBStore, resolve, reject) {
-  const records = [];
-  const index = IDBStore.index(idxName);
-  const rangesLeft = new Countdown(ranges.length);
-  rangesLeft.onZero = partial(resolve, records);
-  ranges.forEach((range) => {
-    const req = index.openCursor(range);
-    req.onsuccess = () => {
-      const cursor = req.result;
-      cursor ? (records.push(cursor.value), cursor.continue())
-             : rangesLeft.add(-1);
-    };
-  });
-}
-
 function createKeyRange(r) {
   const gt   = 'gt' in r;
   const gte  = 'gte' in r;
@@ -66,6 +51,49 @@ function createKeyRange(r) {
   return !gt && !gte ? IDBKeyRange.upperBound(high, lt)
        : !lt && !lte ? IDBKeyRange.lowerBound(low, gt)
                      : IDBKeyRange.bound(low, high, gt, lt);
+}
+
+function doIndexGet(idxName, queries, IDBStore, resolve, reject) {
+  const records = [];
+  const index = IDBStore.index(idxName);
+  const queriesLeft = new Countdown(queries.length);
+  queriesLeft.onZero = partial(resolve, records);
+  for (let query of queries) {
+    let {skip, limit} = query;
+    const req = index.openCursor(query.range, query.direction);
+    const handleWithSkip = () => {
+      const cursor = req.result;
+      if (!cursor) return queriesLeft.add(-1);
+      req.onsuccess = limit != null ? handlerWithLimit : handler;
+      return cursor.advance(skip);
+    };
+    const handlerWithLimit = () => {
+      const cursor = req.result;
+      if (!cursor || !limit) return queriesLeft.add(-1);
+      records.push(cursor.value);
+      limit--;
+      cursor.continue();
+    };
+    const handler = () => {
+      const cursor = req.result;
+      if (!cursor) return queriesLeft.add(-1);
+      records.push(cursor.value);
+      cursor.continue();
+    };
+    req.onsuccess = skip != null ? handleWithSkip
+      : limit != null ? handlerWithLimit
+      : handler;
+  }
+}
+
+function createQuery(q) {
+  return {
+    range: createKeyRange(q),
+    skip: q.skip,
+    limit: q.limit,
+    // 'next' || 'nextunique' || 'prev' || 'prevunique'
+    direction: q.direction,
+  };
 }
 
 function doPushToRemote(ctx) {
@@ -378,8 +406,7 @@ function handleRemoteChange(db, storeName, cb) {
   });
 }
 
-module.exports = {doGet, doInStoreTx, doIndexGet, createKeyRange,
-    doPushToRemote, closeSyncContext, doPullFromRemote,
-    sendRecordsChangedSinceSync, deleteFromStore, getSyncContext,
-    sendChangeToRemote, isKey, addRecToStore, putRecToStore,
-    copyWithoutMeta, getWs};
+module.exports = {doGet, doInStoreTx, doIndexGet, doPushToRemote,
+    closeSyncContext, doPullFromRemote, sendRecordsChangedSinceSync,
+    deleteFromStore, getSyncContext, sendChangeToRemote, isKey, addRecToStore,
+    putRecToStore, copyWithoutMeta, getWs, createQuery,};

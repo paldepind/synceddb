@@ -20,7 +20,7 @@ Table of contents
   - [SDBIndex](#sdbindex)
   - [SDBIndex#get(...values)](#sdbindexget)
   - [SDBIndex#getAll()](#sdbindexgetall)
-  - [SDBIndex#inRange(...ranges)](#sdbindexinrange)
+  - [SDBIndex#find(...queries)](#sdbindexfind)
   - [Database declarations](#database-declarations)
   - [Events](#events)
 - [Server API documentation](#server-api-documentation)
@@ -401,7 +401,37 @@ db.products.byValue.getAll().then((records) => {
 });
 ```
 
-### SDBIndex#inRange(...ranges)
+### SDBIndex#find(...queries)
+
+__Arguments__
+* `query` (...object) - a query to filter results
+
+The object accepts following keys:
+- `gt` or `gte`: Records that are "greater than" or "greater than and equal to" a passed argument will be returned
+- `lt` or `lte`: Records that are "less than" or "less than and equal to" a passed argument will be returned
+- `skip`: Number to skip the first found records
+- `limit`: Number to collect records
+- `direction`: Direction string ('next', 'nextunique', 'prev' or 'prevunique') to be used for `.openCursor(range, direction)`
+
+__Returns__
+A promise resolved with an array of all records that are filtered with the queries.
+If no matching records was found an empty array will be returned.
+
+__Example__
+```javascript
+db.product.byValue.find({
+  gt: 100,
+  lte: 200,
+  skip: 20,
+  limit: 20,
+  direction: 'prev'
+}).then((products) => {
+  // Products where value is `100<value<=200` of the first 20 after 20
+  // matched records, ordered by desc.
+});
+```
+
+### (Deprecated) SDBIndex#inRange(...ranges)
 
 __Arguments__
 * `range` (...object) - a range to query for
