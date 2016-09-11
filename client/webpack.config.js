@@ -5,9 +5,6 @@ const isAmd = process.env.LIBRARY_TARGET === 'amd';
 const outputFileName = `dist/synceddb${isAmd ? '-amd' : '-global'}${isProduction ? '.min' : ''}.js`;
 
 const plugins = [];
-if (isProduction) {
-  plugins.push('transform-remove-console');
-}
 
 module.exports = {
   entry: ['./synceddb.js'],

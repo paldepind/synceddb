@@ -27,9 +27,6 @@ class SDBObjectStore {
 
   get(...keys) {
     return doInStoreTx('readonly', this, (store, resolve, reject) => {
-      console.log('store');
-      console.log(store);
-      console.log(store.IDBStore);
       const gets = keys.map(partial(doGet, store.IDBStore));
       SyncPromise.all(gets).then((records) => {
         if (keys.length === records.length)
