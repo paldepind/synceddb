@@ -316,10 +316,63 @@ describe('SyncedDB', () => {
         db.houses.put({street: 'Somewhere 1'},
                       {street: 'Somewhere 2'},
                       {street: 'Somewhere 3'},
-                      {street: 'Somewhere 4'}
-        ).then(() => db.transaction('houses', 'r', houses => houses.byStreet.inRange({gt: 'Somewhere 2', lte: 'Somewhere 4'})
-          .then(houses => { foundHouses = houses; }))).then(() => {
+                      {street: 'Somewhere 4'})
+        .then(() => db.transaction('houses', 'r', houses => {
+          return houses.byStreet.inRange({gt: 'Somewhere 2', lte: 'Somewhere 4'})
+          .then(houses => { foundHouses = houses; });
+        })).then(() => {
           assert(foundHouses.length === 2);
+          done();
+        });
+      });
+      it('can find records by index with a specified query', done => {
+        let foundHouses;
+        db.houses.put({street: 'Somewhere 1'},
+                      {street: 'Somewhere 2'},
+                      {street: 'Somewhere 3'},
+                      {street: 'Somewhere 4'},
+                      {street: 'Somewhere 5'},
+                      {street: 'Somewhere 6'},
+                      {street: 'Somewhere 7'},
+                      {street: 'Somewhere 8'})
+        .then(() => db.transaction('houses', 'r', houses => {
+          return houses.byStreet.find({
+            gt: 'Somewhere 2',
+            lte: 'Somewhere 8',
+            skip: 2,
+            limit: 2,
+          })
+          .then(houses => { foundHouses = houses; });
+        })).then(() => {
+          assert.deepEqual(foundHouses, [
+            {street: 'Somewhere 5'},
+            {street: 'Somewhere 6'},
+          ]);
+          done();
+        });
+      });
+      it('can find records from different direction', (done) => {
+        let foundHouses;
+        db.houses.put({street: 'Somewhere 1'},
+                      {street: 'Somewhere 2'},
+                      {street: 'Somewhere 3'},
+                      {street: 'Somewhere 4'},
+                      {street: 'Somewhere 5'},
+                      {street: 'Somewhere 6'})
+        .then(() => db.transaction('houses', 'r', houses => {
+          return houses.byStreet.find({
+            gt: 'Somewhere 2',
+            lte: 'Somewhere 8',
+            skip: 2,
+            limit: 2,
+            direction: 'prev',
+          })
+          .then(houses => { foundHouses = houses; });
+        })).then(() => {
+          assert.deepEqual(foundHouses.map(e => ({street: e.street})), [
+            {street: 'Somewhere 4'},
+            {street: 'Somewhere 3'},
+          ]);
           done();
         });
       });
@@ -394,12 +447,7 @@ describe('SyncedDB', () => {
       }
       const house1 = {street: 'Somewhere 7', built: 1993};
       const house2 = {street: 'Somewhere 8', built: 1995};
-<<<<<<< 3d8f46fbeaa6abee9dce4b6f64e7f7e9b384ebb4
-      db.houses.put(house1, house2).then(function() {
-=======
       db.houses.put(house1, house2).then(() => {
-        console.log('put em');
->>>>>>> 2015ify test dir
         db.houses.put(house1).then(doneWhen);
         db.houses.put(house2).then(doneWhen);
       });
