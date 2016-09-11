@@ -8,9 +8,7 @@ function saveDocument(dbUrl, doc) {
     url: url,
     method: method,
     json: doc,
-  }).spread(function(res, body) {
-    console.log(body);
-  });
+  }).spread(function(res, body) {});
 }
 
 function doCreateDb(dbUrl) {
@@ -100,7 +98,6 @@ couchdbPersistence.prototype.getChanges = function(req) {
     qs: {startkey: '["' + req.storeName + '",' + since + ']',
          endkey: '["' + req.storeName + '",{}]'}
   }).spread(function(res, body) {
-    console.log(body);
     return body.rows.map(function(d) {
       d.value.docType = undefined;
       d.value._id = undefined;

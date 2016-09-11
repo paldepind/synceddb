@@ -16,7 +16,7 @@ describe('SyncedDB', function() {
   };
   afterEach(function(done) {
     const req = indexedDB.deleteDatabase('mydb');
-    req.onblocked = function() { console.log('Delete was blocked'); };
+    req.onblocked = function() { };
     req.onsuccess = function() { done(); };
   });
   describe('Opening a database', function() {
@@ -417,7 +417,6 @@ describe('SyncedDB', function() {
       const house1 = {street: 'Somewhere 7', built: 1993};
       const house2 = {street: 'Somewhere 8', built: 1995};
       db.houses.put(house1, house2).then(function() {
-        console.log('put em');
         db.houses.put(house1).then(doneWhen);
         db.houses.put(house2).then(doneWhen);
       });
