@@ -9,7 +9,12 @@ class SDBDatabase {
   constructor(opts) {
     Events(this);
     this.name = opts.name;
-    this.remote = opts.remote;
+    if (opts.remote) {
+      // For compatibility
+      this.url = 'ws://' + opts.remote;
+    } else {
+      this.url = opts.url;
+    }
     this.version = opts.version;
     this.recordsToSync = new Countdown();
     this.changesLeftFromRemote = new Countdown();

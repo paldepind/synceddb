@@ -42,7 +42,7 @@ __Arguments__
   * `name` (string) - the name of the database to open.
   * `version` (number) - the version of the database to open.
   * `stores` (object) - An object declaring the stores in the database and their indexes.
-  * \[`remote`\] (string) - An URL specifying the location of the remote to which the client should sync.
+  * \[`url`\] (string) - An URL specifying the location of the remote to which the client should sync.
   * \[`migrations`\] (object) - An object with keys matching callbacks to execute when the database is upgraded.
 
 __Returns__
@@ -92,7 +92,7 @@ __Properties__
 * `name` - the name of the database
 * `db` - the raw IDBDatabase associated with the database
 * `version` - the version of the database
-* `remote` - the address to which the database should sync
+* `url` - the address to which the database should sync
 * `stores` - an object of the SDBIndexes belonging to the store
 * `messages` - an event emitter which emits custom events from the server
 

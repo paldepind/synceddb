@@ -245,7 +245,7 @@ function deleteMsg(storeName, record) {
 function getWs(db) {
   if (!db.wsPromise) {
     db.wsPromise = new Promise((resolve, reject) => {
-      db.ws = new WrappedSocket('ws://' + db.remote);
+      db.ws = new WrappedSocket(db.url);
       db.ws.on('message', partial(handleIncomingMessage, db));
       db.ws.on('open', () => {
         resolve(db.ws);
