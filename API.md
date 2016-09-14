@@ -20,7 +20,7 @@ Table of contents
   - [SDBIndex](#sdbindex)
   - [SDBIndex#get(...values)](#sdbindexget)
   - [SDBIndex#getAll()](#sdbindexgetall)
-  - [SDBIndex#find(...queries)](#sdbindexfind)
+  - [SDBIndex#inRange(...queries)](#sdbindexinrange)
   - [Database declarations](#database-declarations)
   - [Events](#events)
 - [Server API documentation](#server-api-documentation)
@@ -401,7 +401,7 @@ db.products.byValue.getAll().then((records) => {
 });
 ```
 
-### SDBIndex#find(...queries)
+### SDBIndex#inRange(...queries)
 
 __Arguments__
 * `query` (...object) - a query to filter results
@@ -419,7 +419,7 @@ If no matching records was found an empty array will be returned.
 
 __Example__
 ```javascript
-db.product.byValue.find({
+db.product.byValue.inRange({
   gt: 100,
   lte: 200,
   skip: 20,
@@ -428,31 +428,6 @@ db.product.byValue.find({
 }).then((products) => {
   // Products where value is `100<value<=200` of the first 20 after 20
   // matched records, ordered by desc.
-});
-```
-
-### (Deprecated) SDBIndex#inRange(...ranges)
-
-__Arguments__
-* `range` (...object) - a range to query for
-
-The object accepts following keys:
-- `gt` or `gte`: Records that are "greater than" or "greater than and equal to" a passed argument will be returned
-- `lt` or `lte`: Records that are "less than" or "less than and equal to" a passed argument will be returned
-
-__Returns__
-A promise resolved with an array of all records that are contained in one
-of the ranges queried for. If no matching records was found an empty array will
-be returned.
-
-__Example__
-```javascript
-db.product.byValue.inRange({gt: 100, lte: 200}).then((products) => {
-  // All products where value is in the interval ]100;200]
-});
-
-db.product.byValue.inRange({lte: 100}).then((products) => {
-  // All products where value is <= 100
 });
 ```
 
