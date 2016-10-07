@@ -1,4 +1,5 @@
 'use strict';
+
 const blacklist = require('blacklist');
 const WebSocketServer = require('ws').Server;
 

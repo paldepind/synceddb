@@ -1,3 +1,5 @@
+'use strict';
+
 const mysql = require('mysql');
 const bluebird = require('bluebird');
 bluebird.promisifyAll(mysql);

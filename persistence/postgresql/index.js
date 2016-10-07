@@ -1,3 +1,5 @@
+'use strict';
+
 const bluebird = require('bluebird');
 const pg = bluebird.promisifyAll(require('pg'));
 
