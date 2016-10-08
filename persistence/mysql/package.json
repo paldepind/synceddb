@@ -1,6 +1,6 @@
 {
   "name": "synceddb-persistence-mysql",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "description": "Persistence module for SyncedDB using MySQL for storage",
   "main": "index.js",
   "directories": {
