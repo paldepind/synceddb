@@ -4,7 +4,7 @@ SyncedDB persistence providers
 The SyncedDB NodeJS server decouples persistence from the rest of the servers
 functionality. This makes it possible for the server to use different
 databases and storage formats. It furthermore makes it possible for users
-to extend the default persistence providers their own specific needs.
+to extend the default persistence providers to their own specific needs.
 
 Persistence interface
 ---------------------
