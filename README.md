@@ -82,7 +82,7 @@ db.tasks.byCreation.getAll() // Get all task elements sorted after creation and 
 });
 
 db.tasks.on('add', function(e) { // Add a handler if a new task element is pushed from remote.
-  console.log("New task from server"+e.record); // Handle task by printing it on the console.
+  console.log("New task from server: ", e.record); // Handle task by printing it on the console.
 });
 
 // Start syncing continuously, the server will now.
