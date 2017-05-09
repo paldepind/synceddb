@@ -76,13 +76,13 @@ db.tasks.put({ // Add one task to database.
   createdAt: Date.now()
 });
 
-db.tasks.byCreation.getAll() // Get all task elements sorted after creation.
+db.tasks.byCreation.getAll() // Get all task elements sorted after creation and output them on the console.
 .then(function(tasks) {
-  tasks.forEach(createTaskElm);
+  tasks.forEach(console.log);
 });
 
-db.tasks.on('add', function(e) { // A new task element pushed from remote.
-  createTaskElm(e.record); // Handle task.
+db.tasks.on('add', function(e) { // Add a handler if a new task element is pushed from remote.
+  console.log("New task from server"+e.record); // Handle task by printing it on the console.
 });
 
 // Start syncing continuously, the server will now.
@@ -95,18 +95,20 @@ __Server__
 ```javascript
 var Server = require('synceddb-server');
 
-// Persistence with PostreSQL.
-var pgPersistence = require('synceddb-persistence-postgres');
+// Persistence within memory (you can use other adaptors for PostreSQL, MySQL & CouchDB.
+var sdbPersistence = require('synceddb-persistence-memory');
 
 var server = new Server({
   port: 8080,
-  store: new pgPersistence({
-    conString: 'postgres://postgres@localhost/synceddb',
-  }),
+  store: sdbPersistence,
 });
 ```
 
-[See the entire example including server code here]
+Run the example by starting the server with node and run the client in a browser incognito mode.
+Then restart the client and watch the console output.
+
+
+[See a more sophisticated version of this example here]
 (https://github.com/paldepind/synceddb/tree/master/examples/todo)
 
 Main features
