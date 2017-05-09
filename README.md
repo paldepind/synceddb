@@ -100,7 +100,7 @@ var sdbPersistence = require('synceddb-persistence-memory');
 
 var server = new Server({
   port: 8080,
-  store: sdbPersistence,
+  store: sdbPersistence.create(),
 });
 ```
 
