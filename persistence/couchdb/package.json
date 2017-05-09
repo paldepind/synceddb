@@ -1,5 +1,5 @@
 {
-  "name": "synceddb-persistence-couchddb",
+  "name": "synceddb-persistence-couchdb",
   "version": "0.0.3",
   "description": "Persistence module for SyncedDB using CouchdDB for storage",
   "main": "index.js",
