@@ -3,8 +3,8 @@ SyncedDB persistence providers
 
 The SyncedDB NodeJS server decouples persistence from the rest of the servers
 functionality. This makes it possible for the server to use different
-databases and storage formats. It furthemore makes it possible for users
-to extend the default persistence providers their own specific needs.
+databases and storage formats. It furthermore makes it possible for users
+to extend the default persistence providers to their own specific needs.
 
 Persistence interface
 ---------------------
@@ -15,15 +15,15 @@ it must return an object with the following methods:
 
 ### persistence.saveChange(change)
 
-The change recieved can take three different forms as specified by
+The change received can take three different forms as specified by
 the type property of the change object.
 
-A new change is returned whith a timestamp and in some cases additional
+A new change is returned with a timestamp and in some cases additional
 properties added by the persistence provider.
 
 #### Create change
 
-__Aguments__
+__Arguments__
 * `change` (object): The change to save. Properties:
   * `type` (string): Has the value `'create'`.
   * `storeName` (string): The store to which the changed record belongs.
@@ -36,13 +36,13 @@ __Returns__
   * `storeName` (string): Unchanged.
   * `record` (object): Unchanged.
   * `key` (string|number): The key that the change was stored as. This need
-    not be the same as the key recieved.
+    not be the same as the key received.
   * `timestamp` (\*): Timestamp at which the change was stored.
   * `version` (\*): The initial version of the created record.
 
 #### Update change
 
-__Aguments__
+__Arguments__
 
 * `change` (object): The change to save. Properties:
   * `type` (string): Has the value `'update'`.
@@ -64,7 +64,7 @@ __Returns__
 
 #### Delete change
 
-__Aguments__
+__Arguments__
 
 * `change` (object): The change to save. Properties:
   * `type` (string): Has the value `'delete'`.
