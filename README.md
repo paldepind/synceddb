@@ -95,7 +95,7 @@ __Server__
 ```javascript
 var Server = require('synceddb-server');
 
-// Persistence within memory (you can use other adaptors for PostreSQL, MySQL & CouchDB.
+// Persistence within memory (you can use other adaptors for PostgreSQL, MySQL & CouchDB.
 var sdbPersistence = require('synceddb-persistence-memory');
 
 var server = new Server({
