@@ -1,7 +1,7 @@
 {
   "name": "synceddb-persistence-couchdb",
   "version": "0.0.3",
-  "description": "Persistence module for SyncedDB using CouchdDB for storage",
+  "description": "Persistence module for SyncedDB using CouchDB for storage",
   "main": "index.js",
   "directories": {
     "test": "test"
@@ -15,7 +15,7 @@
   },
   "keywords": [
     "synceddb",
-    "couchddb"
+    "couchdb"
   ],
   "author": "Simon Friis Vindum",
   "license": "MIT",
