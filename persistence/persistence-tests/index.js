@@ -4,6 +4,7 @@ const assert = require('assert');
 
 function testPersistence(create) {
   describe('Persistence', function() {
+    this.timeout(10 * 1000)
     let store;
     beforeEach(function() {
       return  create().then(function(s) {
