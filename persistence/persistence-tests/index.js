@@ -4,7 +4,7 @@ const assert = require('assert');
 
 function testPersistence(create) {
   describe('Persistence', function() {
-    this.timeout(10 * 1000)
+    this.timeout(10 * 1000);
     let store;
     beforeEach(function() {
       return  create().then(function(s) {
@@ -81,26 +81,23 @@ function testPersistence(create) {
         assert.notEqual(result[1].version, undefined);
       });
     });
-    // @paldepind Could you maintain this test? I couldn't figure out how "key" should behave.
-    //
-    // it('sending several changes in a row generates unique keys', function(done) {
-    //   let called = 0;
-    //   const keys = [];
-    //   const change1 = { type: 'create', storeName: 'animals', record: { name: 'Thumper' }, key: 0, };
-    //   const change2 = { type: 'create', storeName: 'animals', record: { name: 'Thumper' }, key: 0, };
-    //   const change3 = { type: 'create', storeName: 'animals', record: { name: 'Thumper' }, key: 0, };
-    //   function handle(change) {
-    //     keys.push(change.key);
-    //     if (keys.length === 3) {
-    //       assert.notEqual(keys[0], keys[1]);
-    //       assert.notEqual(keys[1], keys[2]);
-    //       done();
-    //     }
-    //   }
-    //   store.saveChange(change1).then(handle);
-    //   store.saveChange(change2).then(handle);
-    //   store.saveChange(change3).then(handle);
-    // });
+    it('sending several changes in a row generates unique keys', function(done) {
+      const keys = [];
+      const change1 = { type: 'create', storeName: 'animals', record: { name: 'thumper' } };
+      const change2 = { type: 'create', storeName: 'animals', record: { name: 'thumper' } };
+      const change3 = { type: 'create', storeName: 'animals', record: { name: 'thumper' } };
+      function handle(change) {
+        keys.push(change.key);
+        if (keys.length === 3) {
+          assert.notEqual(keys[0], keys[1]);
+          assert.notEqual(keys[1], keys[2]);
+          done();
+        }
+      }
+      store.saveChange(change1).then(handle);
+      store.saveChange(change2).then(handle);
+      store.saveChange(change3).then(handle);
+    });
     it('only returns changes after timestamp', function() {
       let secondChangeTimestamp;
       const change = {

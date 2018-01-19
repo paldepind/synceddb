@@ -1,5 +1,7 @@
 'use strict';
 
+let nextKey = 0;
+
 function create() {
   return Promise.resolve(new MemoryPersistence());
 }
@@ -9,6 +11,13 @@ function MemoryPersistence() {
 }
 
 MemoryPersistence.prototype.saveChange = function(change) {
+  if (change.type === 'create') {
+    change.version = 0;
+    change.key = nextKey;
+    nextKey++;
+  } else {
+    change.version++;
+  }
   change.version = change.type === 'create' ? 0 : change.version + 1;
   if (!this.changes[change.storeName]) {
     this.changes[change.storeName] = [];
