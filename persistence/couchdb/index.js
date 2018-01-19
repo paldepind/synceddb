@@ -3,6 +3,8 @@
 const bluebird = require('bluebird');
 const request = bluebird.promisify(require('request'));
 
+let nextKey = 0;
+
 function saveDocument(dbUrl, doc) {
   const method = doc._id ? 'PUT' : 'POST';
   const url = dbUrl + (doc._id ? doc._id : '');
@@ -52,7 +54,6 @@ function getStoreMetaDoc(dbUrl, storeName) {
         '_id': storeName,
         docType: 'storeMeta',
         timestamp: 0,
-        nextKey: 0
       };
     } else {
       return body;
@@ -67,15 +68,15 @@ function couchdbPersistence(opts) {
 couchdbPersistence.prototype.saveChange = function(change) {
   let storeMeta;
   const dbUrl = this.dbUrl;
+  if (change.type === 'create') {
+    change.version = 0;
+    change.key = nextKey;
+    nextKey++;
+  } else {
+    change.version++;
+  }
   return getStoreMetaDoc(dbUrl, change.storeName).then(function(sM) {
     storeMeta = sM;
-    if (change.type === 'create') {
-      change.version = 0;
-      change.key = storeMeta.nextKey;
-      storeMeta.nextKey++;
-    } else {
-      change.version++;
-    }
     change.timestamp = storeMeta.timestamp;
     change.docType = 'change';
     return saveDocument(dbUrl, change);
