@@ -108,8 +108,7 @@ Run the example by starting the server with node and run the client in a browser
 Then restart the client and watch the console output.
 
 
-[See a more sophisticated version of this example here]
-(https://github.com/paldepind/synceddb/tree/master/examples/todo)
+[See a more sophisticated version of this example here](https://github.com/paldepind/synceddb/tree/master/examples/todo)
 
 Main features
 --------
